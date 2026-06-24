@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const API = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
@@ -12,10 +12,21 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const fetchOrders = useCallback(async () => {
+    const res = await axios.get(`${API}/rider/available`);
+    setOrders(res.data);
+  }, []);
+
+  const fetchActiveDelivery = useCallback(async () => {
+    if (!rider) return;
+    const res = await axios.get(`${API}/rider/my-delivery/${rider.name}`);
+    setActiveDelivery(res.data);
+  }, [rider]);
+
   useEffect(() => {
     if (screen === 'available') fetchOrders();
     if (screen === 'active') fetchActiveDelivery();
-  }, [screen]);
+  }, [screen, fetchOrders, fetchActiveDelivery]);
 
   const login = async () => {
     try {
@@ -29,16 +40,6 @@ export default function App() {
     } catch (err) {
       setErrorMsg('Invalid email or password');
     }
-  };
-
-  const fetchOrders = async () => {
-    const res = await axios.get(`${API}/rider/available`);
-    setOrders(res.data);
-  };
-
-  const fetchActiveDelivery = async () => {
-    const res = await axios.get(`${API}/rider/my-delivery/${rider.name}`);
-    setActiveDelivery(res.data);
   };
 
   const pickupOrder = async (id) => {
