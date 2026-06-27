@@ -1,77 +1,107 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 
-const API = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
+const API_URL = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
+const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway.app';
 
 export default function App() {
   const [screen, setScreen] = useState('login');
   const [rider, setRider] = useState(null);
+  const [token, setToken] = useState(null);
+  const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(false);
   const [orders, setOrders] = useState([]);
   const [activeDelivery, setActiveDelivery] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const prevOrderCountRef = useRef(null);
-  const prevStatusRef = useRef(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  // Connect socket when token is available
+  useEffect(() => {
+    if (!token) return;
+
+    const s = io(SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
+
+    s.on('connect', () => setConnected(true));
+    s.on('disconnect', () => setConnected(false));
+    setSocket(s);
+
+    return () => {
+      s.disconnect();
+      setSocket(null);
+      setConnected(false);
+    };
+  }, [token]);
 
   const fetchOrders = useCallback(async () => {
-    const res = await axios.get(`${API}/rider/available`);
-    const newOrders = res.data;
-    if (
-      Notification.permission === 'granted' &&
-      prevOrderCountRef.current !== null &&
-      newOrders.length > prevOrderCountRef.current
-    ) {
-      const diff = newOrders.length - prevOrderCountRef.current;
-      new Notification('New Delivery Available 🛵', {
-        body: `${diff} new order${diff > 1 ? 's' : ''} ready for pickup`,
-      });
-    }
-    prevOrderCountRef.current = newOrders.length;
-    setOrders(newOrders);
+    const res = await axios.get(`${API_URL}/rider/available`);
+    setOrders(res.data);
   }, []);
 
   const fetchActiveDelivery = useCallback(async () => {
     if (!rider) return;
-    const res = await axios.get(`${API}/rider/my-delivery/${rider.name}`);
-    const delivery = res.data;
-    if (
-      delivery &&
-      Notification.permission === 'granted' &&
-      prevStatusRef.current !== null &&
-      delivery.status !== prevStatusRef.current
-    ) {
-      new Notification('Delivery Update 📦', {
-        body: `Order #${delivery.id} status: ${delivery.status.replace('_', ' ')}`,
-      });
-    }
-    if (delivery) prevStatusRef.current = delivery.status;
-    setActiveDelivery(delivery);
+    const res = await axios.get(`${API_URL}/rider/my-delivery/${rider.name}`);
+    setActiveDelivery(res.data);
   }, [rider]);
 
+  // Initial data fetch when screen changes
   useEffect(() => {
-    if (screen === 'available') {
-      fetchOrders();
-      const interval = setInterval(fetchOrders, 30000);
-      return () => clearInterval(interval);
-    }
-    if (screen === 'active') {
-      fetchActiveDelivery();
-      const interval = setInterval(fetchActiveDelivery, 30000);
-      return () => clearInterval(interval);
-    }
+    if (screen === 'available') fetchOrders();
+    if (screen === 'active') fetchActiveDelivery();
   }, [screen, fetchOrders, fetchActiveDelivery]);
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRiderAvailable = () => {
+      fetchOrders();
+      if (Notification.permission === 'granted') {
+        new Notification('New Delivery Available 🛵', {
+          body: 'A new order is ready for pickup!',
+        });
+      }
+      showToast('New delivery available! 🛵');
+    };
+
+    const handleStatusChanged = (data) => {
+      const { orderId, status } = data ?? {};
+      if (!orderId || !status) return;
+      setActiveDelivery(prev =>
+        prev?.id === orderId ? { ...prev, status } : prev
+      );
+    };
+
+    socket.on('rider_available', handleRiderAvailable);
+    socket.on('order_status_changed', handleStatusChanged);
+
+    return () => {
+      socket.off('rider_available', handleRiderAvailable);
+      socket.off('order_status_changed', handleStatusChanged);
+    };
+  }, [socket, fetchOrders, showToast]);
 
   const login = async () => {
     try {
-      const res = await axios.post(`${API}/auth/login`, { email, password });
+      const res = await axios.post(`${API_URL}/auth/login`, { email, password });
       if (res.data.user.role !== 'rider') {
         setErrorMsg('You are not a rider!');
         return;
       }
-      if ('Notification' in window) {
-        Notification.requestPermission();
-      }
+      if ('Notification' in window) Notification.requestPermission();
+      setToken(res.data.token);
       setRider(res.data.user);
       setScreen('available');
     } catch (err) {
@@ -80,14 +110,12 @@ export default function App() {
   };
 
   const pickupOrder = async (id) => {
-    await axios.put(`${API}/rider/${id}/pickup`, { riderName: rider.name });
-    prevStatusRef.current = null;
+    await axios.put(`${API_URL}/rider/${id}/pickup`, { riderName: rider.name });
     setScreen('active');
   };
 
   const deliverOrder = async (id) => {
-    await axios.put(`${API}/rider/${id}/deliver`);
-    prevStatusRef.current = null;
+    await axios.put(`${API_URL}/rider/${id}/deliver`);
     setActiveDelivery(null);
     setScreen('available');
   };
@@ -107,10 +135,19 @@ export default function App() {
 
   if (screen === 'available') return (
     <div style={styles.container}>
+      {toast && <div style={styles.toast}>{toast}</div>}
       <div style={styles.header}>
-        <h2 style={styles.headerTitle}>🛵 Available Deliveries</h2>
-        <p style={styles.headerSub}>Welcome, {rider?.name}</p>
-        <button style={styles.smallButton} onClick={() => setScreen('active')}>My Active Delivery</button>
+        <div>
+          <h2 style={styles.headerTitle}>🛵 Available Deliveries</h2>
+          <p style={styles.headerSub}>Welcome, {rider?.name}</p>
+        </div>
+        <div style={styles.headerRight}>
+          <div style={{ ...styles.liveChip, backgroundColor: connected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)' }}>
+            <span style={{ ...styles.liveDot, backgroundColor: connected ? '#a5d6a7' : '#ffcc80' }} />
+            {connected ? 'Live' : 'Connecting…'}
+          </div>
+          <button style={styles.smallButton} onClick={() => setScreen('active')}>My Active Delivery</button>
+        </div>
       </div>
       <button style={styles.refreshBtn} onClick={fetchOrders}>🔄 Refresh</button>
       {orders.length === 0 ? (
@@ -135,6 +172,7 @@ export default function App() {
 
   if (screen === 'active') return (
     <div style={styles.container}>
+      {toast && <div style={styles.toast}>{toast}</div>}
       <div style={styles.header}>
         <h2 style={styles.headerTitle}>🚴 Active Delivery</h2>
         <button style={styles.smallButton} onClick={() => setScreen('available')}>← Back</button>
@@ -167,9 +205,12 @@ const styles = {
   errorMsg: { color: 'red', textAlign: 'center', marginBottom: '12px' },
   input: { width: '100%', padding: '12px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '16px', boxSizing: 'border-box' },
   button: { width: '100%', padding: '14px', backgroundColor: '#ff6b35', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer' },
-  header: { backgroundColor: '#ff6b35', padding: '20px', borderRadius: '12px', marginBottom: '20px', color: '#fff' },
+  header: { backgroundColor: '#ff6b35', padding: '20px', borderRadius: '12px', marginBottom: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { margin: '0 0 4px', fontSize: '24px' },
-  headerSub: { margin: '0 0 12px', opacity: 0.8 },
+  headerSub: { margin: 0, opacity: 0.8, fontSize: '14px' },
+  headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
+  liveChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#fff' },
+  liveDot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
   smallButton: { backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' },
   refreshBtn: { marginBottom: '16px', padding: '10px 20px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' },
   orderCard: { backgroundColor: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
@@ -180,4 +221,12 @@ const styles = {
   deliverBtn: { width: '100%', padding: '12px', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer' },
   empty: { textAlign: 'center', padding: '60px 20px' },
   emptyText: { color: '#888', fontSize: '16px' },
+  toast: {
+    position: 'fixed', top: 20, right: 20, zIndex: 9999,
+    backgroundColor: '#ff6b35', color: '#fff',
+    padding: '14px 20px', borderRadius: 10,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+    fontSize: 14, fontWeight: 600,
+    animation: 'none',
+  },
 };
