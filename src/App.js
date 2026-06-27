@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const API = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
@@ -11,21 +11,55 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const prevOrderCountRef = useRef(null);
+  const prevStatusRef = useRef(null);
 
   const fetchOrders = useCallback(async () => {
     const res = await axios.get(`${API}/rider/available`);
-    setOrders(res.data);
+    const newOrders = res.data;
+    if (
+      Notification.permission === 'granted' &&
+      prevOrderCountRef.current !== null &&
+      newOrders.length > prevOrderCountRef.current
+    ) {
+      const diff = newOrders.length - prevOrderCountRef.current;
+      new Notification('New Delivery Available 🛵', {
+        body: `${diff} new order${diff > 1 ? 's' : ''} ready for pickup`,
+      });
+    }
+    prevOrderCountRef.current = newOrders.length;
+    setOrders(newOrders);
   }, []);
 
   const fetchActiveDelivery = useCallback(async () => {
     if (!rider) return;
     const res = await axios.get(`${API}/rider/my-delivery/${rider.name}`);
-    setActiveDelivery(res.data);
+    const delivery = res.data;
+    if (
+      delivery &&
+      Notification.permission === 'granted' &&
+      prevStatusRef.current !== null &&
+      delivery.status !== prevStatusRef.current
+    ) {
+      new Notification('Delivery Update 📦', {
+        body: `Order #${delivery.id} status: ${delivery.status.replace('_', ' ')}`,
+      });
+    }
+    if (delivery) prevStatusRef.current = delivery.status;
+    setActiveDelivery(delivery);
   }, [rider]);
 
   useEffect(() => {
-    if (screen === 'available') fetchOrders();
-    if (screen === 'active') fetchActiveDelivery();
+    if (screen === 'available') {
+      fetchOrders();
+      const interval = setInterval(fetchOrders, 30000);
+      return () => clearInterval(interval);
+    }
+    if (screen === 'active') {
+      fetchActiveDelivery();
+      const interval = setInterval(fetchActiveDelivery, 30000);
+      return () => clearInterval(interval);
+    }
   }, [screen, fetchOrders, fetchActiveDelivery]);
 
   const login = async () => {
@@ -34,6 +68,9 @@ export default function App() {
       if (res.data.user.role !== 'rider') {
         setErrorMsg('You are not a rider!');
         return;
+      }
+      if ('Notification' in window) {
+        Notification.requestPermission();
       }
       setRider(res.data.user);
       setScreen('available');
@@ -44,11 +81,13 @@ export default function App() {
 
   const pickupOrder = async (id) => {
     await axios.put(`${API}/rider/${id}/pickup`, { riderName: rider.name });
+    prevStatusRef.current = null;
     setScreen('active');
   };
 
   const deliverOrder = async (id) => {
     await axios.put(`${API}/rider/${id}/deliver`);
+    prevStatusRef.current = null;
     setActiveDelivery(null);
     setScreen('available');
   };
