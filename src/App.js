@@ -23,7 +23,6 @@ export default function App() {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // Connect socket when token is available
   useEffect(() => {
     if (!token) return;
 
@@ -46,23 +45,29 @@ export default function App() {
   }, [token]);
 
   const fetchOrders = useCallback(async () => {
-    const res = await axios.get(`${API_URL}/rider/available`);
-    setOrders(res.data);
+    try {
+      const res = await axios.get(`${API_URL}/rider/available`);
+      setOrders(res.data);
+    } catch (err) {
+      console.error('Failed to fetch available orders');
+    }
   }, []);
 
   const fetchActiveDelivery = useCallback(async () => {
     if (!rider) return;
-    const res = await axios.get(`${API_URL}/rider/my-delivery/${rider.name}`);
-    setActiveDelivery(res.data);
+    try {
+      const res = await axios.get(`${API_URL}/rider/my-delivery/${rider.name}`);
+      if (res.data) setActiveDelivery(res.data);
+    } catch (err) {
+      console.error('Failed to fetch active delivery');
+    }
   }, [rider]);
 
-  // Initial data fetch when screen changes
   useEffect(() => {
     if (screen === 'available') fetchOrders();
-    if (screen === 'active') fetchActiveDelivery();
-  }, [screen, fetchOrders, fetchActiveDelivery]);
+    if (screen === 'active' && !activeDelivery) fetchActiveDelivery();
+  }, [screen, fetchOrders, fetchActiveDelivery, activeDelivery]);
 
-  // Socket event listeners
   useEffect(() => {
     if (!socket) return;
 
@@ -79,8 +84,9 @@ export default function App() {
     const handleStatusChanged = (data) => {
       const { orderId, status } = data ?? {};
       if (!orderId || !status) return;
+      const id = Number(orderId);
       setActiveDelivery(prev =>
-        prev?.id === orderId ? { ...prev, status } : prev
+        prev?.id === id ? { ...prev, status } : prev
       );
     };
 
@@ -109,13 +115,29 @@ export default function App() {
     }
   };
 
-  const pickupOrder = async (id) => {
-    await axios.put(`${API_URL}/rider/${id}/pickup`, { riderName: rider.name });
+  // Accept delivery: store order locally and move to active screen (no API yet)
+  const acceptOrder = (order) => {
+    setActiveDelivery(order);
     setScreen('active');
   };
 
+  // Mark as picked up: calls the pickup API and optimistically updates status
+  const markAsPickedUp = async (id) => {
+    setActiveDelivery(prev => prev ? { ...prev, status: 'out_for_delivery' } : null);
+    try {
+      await axios.put(`${API_URL}/rider/${id}/pickup`, { riderName: rider.name });
+    } catch (err) {
+      console.error('Failed to mark as picked up');
+      fetchActiveDelivery();
+    }
+  };
+
   const deliverOrder = async (id) => {
-    await axios.put(`${API_URL}/rider/${id}/deliver`);
+    try {
+      await axios.put(`${API_URL}/rider/${id}/deliver`);
+    } catch (err) {
+      console.error('Failed to mark as delivered');
+    }
     setActiveDelivery(null);
     setScreen('available');
   };
@@ -158,12 +180,12 @@ export default function App() {
         orders.map(order => (
           <div key={order.id} style={styles.orderCard}>
             <h3 style={styles.orderId}>Order #{order.id}</h3>
-            <p style={styles.orderInfo}>📍 Pickup: {order.restaurant.name} - {order.restaurant.address}</p>
+            <p style={styles.orderInfo}>📍 Pickup: {order.restaurant?.name} - {order.restaurant?.address}</p>
             <p style={styles.orderInfo}>🏠 Deliver to: {order.customerAddress}</p>
             <p style={styles.orderInfo}>👤 Customer: {order.customerName}</p>
             <p style={styles.orderInfo}>📞 Phone: {order.customerPhone}</p>
             <p style={styles.orderTotal}>Total: €{order.total}</p>
-            <button style={styles.acceptBtn} onClick={() => pickupOrder(order.id)}>Accept Delivery</button>
+            <button style={styles.acceptBtn} onClick={() => acceptOrder(order)}>Accept Delivery</button>
           </div>
         ))
       )}
@@ -175,7 +197,7 @@ export default function App() {
       {toast && <div style={styles.toast}>{toast}</div>}
       <div style={styles.header}>
         <h2 style={styles.headerTitle}>🚴 Active Delivery</h2>
-        <button style={styles.smallButton} onClick={() => setScreen('available')}>← Back</button>
+        <button style={styles.smallButton} onClick={() => { setScreen('available'); setActiveDelivery(null); }}>← Back</button>
       </div>
       {!activeDelivery ? (
         <div style={styles.empty}>
@@ -184,13 +206,40 @@ export default function App() {
       ) : (
         <div style={styles.orderCard}>
           <h3 style={styles.orderId}>Order #{activeDelivery.id}</h3>
-          <p style={styles.orderInfo}>📍 Pickup: {activeDelivery.restaurant.name}</p>
-          <p style={styles.orderInfo}>📍 Address: {activeDelivery.restaurant.address}</p>
+
+          {/* Status banner */}
+          {activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing' ? (
+            <div style={styles.waitingBanner}>
+              ⏳ Waiting for restaurant to prepare your order...
+            </div>
+          ) : activeDelivery.status === 'ready' ? (
+            <div style={styles.readyBanner}>
+              🍔 Ready for Pickup!
+            </div>
+          ) : null}
+
+          <p style={styles.orderInfo}>📍 Pickup: {activeDelivery.restaurant?.name}</p>
+          <p style={styles.orderInfo}>📍 Address: {activeDelivery.restaurant?.address}</p>
           <p style={styles.orderInfo}>🏠 Deliver to: {activeDelivery.customerAddress}</p>
           <p style={styles.orderInfo}>👤 Customer: {activeDelivery.customerName}</p>
           <p style={styles.orderInfo}>📞 Phone: {activeDelivery.customerPhone}</p>
           <p style={styles.orderTotal}>Total: €{activeDelivery.total}</p>
-          <button style={styles.deliverBtn} onClick={() => deliverOrder(activeDelivery.id)}>✅ Mark as Delivered</button>
+
+          {activeDelivery.status === 'ready' && (
+            <button style={styles.pickupBtn} onClick={() => markAsPickedUp(activeDelivery.id)}>
+              🛵 Mark as Picked Up
+            </button>
+          )}
+          {activeDelivery.status === 'out_for_delivery' && (
+            <button style={styles.deliverBtn} onClick={() => deliverOrder(activeDelivery.id)}>
+              ✅ Mark as Delivered
+            </button>
+          )}
+          {(activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing') && (
+            <div style={styles.waitingNote}>
+              The "Mark as Picked Up" button will appear once the restaurant marks the order ready.
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -218,7 +267,22 @@ const styles = {
   orderInfo: { color: '#555', margin: '4px 0', fontSize: '14px' },
   orderTotal: { fontWeight: 'bold', fontSize: '18px', margin: '12px 0' },
   acceptBtn: { width: '100%', padding: '12px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer' },
-  deliverBtn: { width: '100%', padding: '12px', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer' },
+  pickupBtn: { width: '100%', padding: '12px', backgroundColor: '#ff6b35', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginTop: '8px' },
+  deliverBtn: { width: '100%', padding: '12px', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginTop: '8px' },
+  waitingBanner: {
+    backgroundColor: '#fff3e0', color: '#e65100', borderRadius: '8px',
+    padding: '12px 16px', marginBottom: '16px', fontWeight: '600', fontSize: '15px',
+    border: '1px solid #ffcc80',
+  },
+  readyBanner: {
+    backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: '8px',
+    padding: '12px 16px', marginBottom: '16px', fontWeight: '700', fontSize: '15px',
+    border: '1px solid #a5d6a7',
+  },
+  waitingNote: {
+    marginTop: '12px', fontSize: '12px', color: '#999', textAlign: 'center',
+    fontStyle: 'italic',
+  },
   empty: { textAlign: 'center', padding: '60px 20px' },
   emptyText: { color: '#888', fontSize: '16px' },
   toast: {
@@ -227,6 +291,5 @@ const styles = {
     padding: '14px 20px', borderRadius: 10,
     boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
     fontSize: 14, fontWeight: 600,
-    animation: 'none',
   },
 };
