@@ -266,10 +266,10 @@ export default function App() {
 
   // ─── Shared nav helpers ──────────────────────────────────────────────────────
 
-  const NavButtons = ({ showBack = false, backTo = 'available' }) => (
+  const NavButtons = ({ backTo = 'available' }) => (
     <div style={{ display: 'flex', gap: 6 }}>
-      {screen !== 'earnings' && <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰</button>}
-      {screen !== 'profile' && <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤</button>}
+      {screen !== 'earnings' && <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>}
+      {screen !== 'profile' && <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>}
       {screen !== 'available' && <button style={styles.smallBtn} onClick={() => setScreen(backTo)}>← Back</button>}
     </div>
   );
@@ -421,7 +421,7 @@ export default function App() {
             </p>
           </div>
 
-          <p style={styles.orderTotal}>Total: €{activeDelivery.total}</p>
+          <p style={styles.orderTotal}>Total: €{Number(activeDelivery.total).toFixed(2)}</p>
 
           {activeDelivery.status === 'ready' && (
             <button style={styles.pickupBtn} onClick={() => markAsPickedUp(activeDelivery.id)}>
