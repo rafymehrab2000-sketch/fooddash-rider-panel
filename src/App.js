@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import DeliveryMap from './DeliveryMap';
 
 const API_URL = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
 const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway.app';
@@ -370,6 +371,7 @@ export default function App() {
       {!activeDelivery ? (
         <div style={styles.empty}><p style={styles.emptyText}>No active delivery</p></div>
       ) : (
+        <>
         <div style={styles.orderCard}>
           <h3 style={styles.orderId}>Order #{activeDelivery.id}</h3>
 
@@ -437,6 +439,8 @@ export default function App() {
             <p style={styles.waitingNote}>Polling every 5s — pickup button appears once restaurant marks ready.</p>
           )}
         </div>
+        <DeliveryMap activeDelivery={activeDelivery} />
+        </>
       )}
     </div>
   );
