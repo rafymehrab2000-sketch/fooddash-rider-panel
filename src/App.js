@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
@@ -14,30 +14,35 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [orders, setOrders] = useState([]);
   const [activeDelivery, setActiveDelivery] = useState(null);
+  const [earnings, setEarnings] = useState([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast] = useState(null);
+  const prevStatusRef = useRef(null);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 4000);
   }, []);
 
+  // Attach Bearer token to every axios request when logged in
+  useEffect(() => {
+    if (token) axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    else delete axios.defaults.headers.common['Authorization'];
+  }, [token]);
+
   useEffect(() => {
     if (!token) return;
-
     const s = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
     });
-
     s.on('connect', () => setConnected(true));
     s.on('disconnect', () => setConnected(false));
     setSocket(s);
-
     return () => {
       s.disconnect();
       setSocket(null);
@@ -72,34 +77,75 @@ export default function App() {
     }
   }, [rider]);
 
-  // Re-fetch on every navigation to the active screen so delivery persists.
+  const fetchEarnings = useCallback(async () => {
+    if (!rider) return;
+    try {
+      const res = await axios.get(`${API_URL}/orders`);
+      const delivered = res.data.filter(
+        o => o.status === 'delivered' && o.assignedRider === rider.name
+      );
+      setEarnings(delivered);
+    } catch (err) {
+      console.error('Failed to fetch earnings');
+    }
+  }, [rider]);
+
   useEffect(() => {
     if (screen === 'available') fetchOrders();
     if (screen === 'active') fetchActiveDelivery();
-  }, [screen, fetchOrders, fetchActiveDelivery]);
+    if (screen === 'earnings') fetchEarnings();
+  }, [screen, fetchOrders, fetchActiveDelivery, fetchEarnings]);
 
-  // Poll for status updates while waiting for the restaurant to mark ready,
-  // as a fallback for when the socket event doesn't reach this client
-  // (the backend has no record of the rider accepting until markAsPickedUp).
-  const waitingForRestaurant =
-    screen === 'active' &&
-    (activeDelivery?.status === 'accepted' || activeDelivery?.status === 'preparing');
-
+  // Poll GET /orders/:id every 5 seconds on the active screen.
+  // /rider/my-delivery only returns status='picked_up' orders so can't detect 'ready';
+  // the authenticated /orders/:id endpoint returns the live status at any stage.
   useEffect(() => {
-    if (!waitingForRestaurant) return;
-    const interval = setInterval(fetchActiveDelivery, 5000);
+    if (screen !== 'active' || !activeDelivery?.id) return;
+    const orderId = activeDelivery.id;
+    const poll = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/orders/${orderId}`);
+        const newStatus = res.data?.status;
+        if (!newStatus) return;
+        console.log(`[poll] order #${orderId} status: "${newStatus}"`);
+        setActiveDelivery(prev => {
+          if (!prev || prev.status === newStatus) return prev;
+          console.log(`[poll] status changed: "${prev.status}" → "${newStatus}"`);
+          const updated = { ...prev, status: newStatus };
+          localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
+          return updated;
+        });
+      } catch (err) {
+        console.error('[poll] Failed to fetch order status:', err.message);
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
-  }, [waitingForRestaurant, fetchActiveDelivery]);
+  }, [screen, activeDelivery?.id]);
+
+  // Single place to fire the 'ready' notification — covers both polling and socket updates.
+  useEffect(() => {
+    if (activeDelivery?.status === 'ready' && prevStatusRef.current !== 'ready') {
+      showToast('🍔 Your order is ready for pickup!');
+      if (Notification.permission === 'granted') {
+        new Notification('Order Ready for Pickup! 🍔', {
+          body: 'Head to the restaurant — the order is ready!',
+        });
+      }
+    }
+    prevStatusRef.current = activeDelivery?.status ?? null;
+  }, [activeDelivery?.status, showToast]);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Fires on every status change (backend bug) — only refresh orders, no toast.
+    // Fires on every status change (backend emits it unconditionally) — only refresh list.
     const handleRiderAvailable = () => {
       fetchOrders();
     };
 
-    // Only fires when a new order is created — safe to toast here.
+    // Only fires on new order creation — safe to show the 'new delivery' toast here.
     const handleNewOrder = () => {
       fetchOrders();
       if (Notification.permission === 'granted') {
@@ -128,14 +174,7 @@ export default function App() {
         localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
         return updated;
       });
-      if (status === 'ready') {
-        showToast('🍔 Your order is ready for pickup!');
-        if (Notification.permission === 'granted') {
-          new Notification('Order Ready for Pickup! 🍔', {
-            body: 'Head to the restaurant — the order is ready!',
-          });
-        }
-      }
+      // 'ready' notification is handled by the prevStatusRef useEffect above
     };
 
     socket.on('rider_available', handleRiderAvailable);
@@ -223,7 +262,10 @@ export default function App() {
             <span style={{ ...styles.liveDot, backgroundColor: connected ? '#a5d6a7' : '#ffcc80' }} />
             {connected ? 'Live' : 'Connecting…'}
           </div>
-          <button style={styles.smallButton} onClick={() => setScreen('active')}>My Active Delivery</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={styles.smallButton} onClick={() => setScreen('earnings')}>💰 Earnings</button>
+            <button style={styles.smallButton} onClick={() => setScreen('active')}>My Delivery</button>
+          </div>
         </div>
       </div>
       <button style={styles.refreshBtn} onClick={fetchOrders}>🔄 Refresh</button>
@@ -252,7 +294,10 @@ export default function App() {
       {toast && <div style={styles.toast}>{toast}</div>}
       <div style={styles.header}>
         <h2 style={styles.headerTitle}>🚴 Active Delivery</h2>
-        <button style={styles.smallButton} onClick={() => setScreen('available')}>← Back</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button style={styles.smallButton} onClick={() => setScreen('earnings')}>💰 Earnings</button>
+          <button style={styles.smallButton} onClick={() => setScreen('available')}>← Back</button>
+        </div>
       </div>
       {!activeDelivery ? (
         <div style={styles.empty}>
@@ -262,7 +307,7 @@ export default function App() {
         <div style={styles.orderCard}>
           <h3 style={styles.orderId}>Order #{activeDelivery.id}</h3>
 
-          {/* Live status badge */}
+          {/* Live status badge — updates in real time via polling + socket */}
           <div style={styles.statusRow}>
             <span style={styles.statusLabel}>Live status:</span>
             <span style={{
@@ -272,6 +317,7 @@ export default function App() {
                 preparing: '#9C27B0',
                 ready: '#4CAF50',
                 out_for_delivery: '#00BCD4',
+                picked_up: '#00BCD4',
                 delivered: '#888',
               }[activeDelivery.status] ?? '#ccc',
             }}>
@@ -279,8 +325,7 @@ export default function App() {
             </span>
           </div>
 
-          {/* Status banner */}
-          {activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing' ? (
+          {(activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing') ? (
             <div style={styles.waitingBanner}>
               ⏳ Waiting for restaurant to prepare your order...
             </div>
@@ -302,17 +347,65 @@ export default function App() {
               🛵 Mark as Picked Up
             </button>
           )}
-          {activeDelivery.status === 'out_for_delivery' && (
+          {(activeDelivery.status === 'out_for_delivery' || activeDelivery.status === 'picked_up') && (
             <button style={styles.deliverBtn} onClick={() => deliverOrder(activeDelivery.id)}>
               ✅ Mark as Delivered
             </button>
           )}
           {(activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing') && (
             <div style={styles.waitingNote}>
-              The "Mark as Picked Up" button will appear once the restaurant marks the order ready.
+              Polling every 5s — pickup button appears once restaurant marks ready.
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+
+  const totalEarnings = earnings.reduce((sum, o) => sum + (o.total ?? 0), 0);
+
+  if (screen === 'earnings') return (
+    <div style={styles.container}>
+      {toast && <div style={styles.toast}>{toast}</div>}
+      <div style={styles.earningsHeader}>
+        <div>
+          <h2 style={styles.headerTitle}>💰 Earnings</h2>
+          <p style={styles.headerSub}>{rider?.name}</p>
+        </div>
+        <button style={styles.smallButton} onClick={() => setScreen('available')}>← Back</button>
+      </div>
+
+      <div style={styles.earningsSummary}>
+        <p style={styles.earningsSummaryLabel}>Total Earnings</p>
+        <p style={styles.earningsSummaryTotal}>€{totalEarnings.toFixed(2)}</p>
+        <p style={styles.earningsSummaryCount}>
+          {earnings.length} completed deliver{earnings.length !== 1 ? 'ies' : 'y'}
+        </p>
+      </div>
+
+      {earnings.length === 0 ? (
+        <div style={styles.empty}>
+          <p style={styles.emptyText}>No completed deliveries yet</p>
+        </div>
+      ) : (
+        earnings.map(order => (
+          <div key={order.id} style={styles.earningsCard}>
+            <div style={styles.earningsCardHeader}>
+              <span style={styles.earningsOrderId}>Order #{order.id}</span>
+              <span style={styles.earningsAmount}>€{Number(order.total).toFixed(2)}</span>
+            </div>
+            <p style={styles.earningsInfo}>🍽️ {order.restaurant?.name}</p>
+            <p style={styles.earningsInfo}>🏠 {order.customerAddress}</p>
+            <p style={styles.earningsDate}>
+              {order.createdAt
+                ? new Date(order.createdAt).toLocaleDateString('en-IE', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })
+                : '—'}
+            </p>
+          </div>
+        ))
       )}
     </div>
   );
@@ -327,12 +420,13 @@ const styles = {
   input: { width: '100%', padding: '12px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '16px', boxSizing: 'border-box' },
   button: { width: '100%', padding: '14px', backgroundColor: '#ff6b35', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer' },
   header: { backgroundColor: '#ff6b35', padding: '20px', borderRadius: '12px', marginBottom: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  earningsHeader: { backgroundColor: '#1a237e', padding: '20px', borderRadius: '12px', marginBottom: '20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { margin: '0 0 4px', fontSize: '24px' },
   headerSub: { margin: 0, opacity: 0.8, fontSize: '14px' },
   headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
   liveChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#fff' },
   liveDot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
-  smallButton: { backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' },
+  smallButton: { backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
   refreshBtn: { marginBottom: '16px', padding: '10px 20px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' },
   orderCard: { backgroundColor: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   orderId: { color: '#ff6b35', margin: '0 0 12px' },
@@ -341,38 +435,23 @@ const styles = {
   acceptBtn: { width: '100%', padding: '12px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer' },
   pickupBtn: { width: '100%', padding: '12px', backgroundColor: '#ff6b35', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginTop: '8px' },
   deliverBtn: { width: '100%', padding: '12px', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginTop: '8px' },
-  waitingBanner: {
-    backgroundColor: '#fff3e0', color: '#e65100', borderRadius: '8px',
-    padding: '12px 16px', marginBottom: '16px', fontWeight: '600', fontSize: '15px',
-    border: '1px solid #ffcc80',
-  },
-  readyBanner: {
-    backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: '8px',
-    padding: '12px 16px', marginBottom: '16px', fontWeight: '700', fontSize: '15px',
-    border: '1px solid #a5d6a7',
-  },
-  statusRow: {
-    display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px',
-  },
-  statusLabel: {
-    fontSize: '12px', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px',
-  },
-  statusBadge: {
-    padding: '3px 10px', borderRadius: '20px', color: '#fff',
-    fontSize: '12px', fontWeight: '600', textTransform: 'capitalize',
-    fontFamily: 'monospace',
-  },
-  waitingNote: {
-    marginTop: '12px', fontSize: '12px', color: '#999', textAlign: 'center',
-    fontStyle: 'italic',
-  },
+  waitingBanner: { backgroundColor: '#fff3e0', color: '#e65100', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontWeight: '600', fontSize: '15px', border: '1px solid #ffcc80' },
+  readyBanner: { backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontWeight: '700', fontSize: '15px', border: '1px solid #a5d6a7' },
+  statusRow: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' },
+  statusLabel: { fontSize: '12px', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  statusBadge: { padding: '3px 10px', borderRadius: '20px', color: '#fff', fontSize: '12px', fontWeight: '600', textTransform: 'capitalize', fontFamily: 'monospace' },
+  waitingNote: { marginTop: '12px', fontSize: '12px', color: '#999', textAlign: 'center', fontStyle: 'italic' },
   empty: { textAlign: 'center', padding: '60px 20px' },
   emptyText: { color: '#888', fontSize: '16px' },
-  toast: {
-    position: 'fixed', top: 20, right: 20, zIndex: 9999,
-    backgroundColor: '#ff6b35', color: '#fff',
-    padding: '14px 20px', borderRadius: 10,
-    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-    fontSize: 14, fontWeight: 600,
-  },
+  toast: { position: 'fixed', top: 20, right: 20, zIndex: 9999, backgroundColor: '#ff6b35', color: '#fff', padding: '14px 20px', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', fontSize: 14, fontWeight: 600 },
+  earningsSummary: { backgroundColor: '#ffc107', padding: '24px', borderRadius: '12px', marginBottom: '20px', textAlign: 'center' },
+  earningsSummaryLabel: { margin: '0 0 4px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#5d4037' },
+  earningsSummaryTotal: { margin: '0 0 4px', fontSize: '42px', fontWeight: '800', color: '#212121' },
+  earningsSummaryCount: { margin: 0, fontSize: '13px', color: '#5d4037' },
+  earningsCard: { backgroundColor: '#fff', padding: '16px 20px', borderRadius: '12px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  earningsCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
+  earningsOrderId: { fontWeight: '700', color: '#1a237e', fontSize: '15px' },
+  earningsAmount: { fontWeight: '800', color: '#2e7d32', fontSize: '16px' },
+  earningsInfo: { margin: '2px 0', fontSize: '13px', color: '#555' },
+  earningsDate: { margin: '6px 0 0', fontSize: '11px', color: '#aaa' },
 };
