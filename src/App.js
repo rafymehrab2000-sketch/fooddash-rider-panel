@@ -63,10 +63,24 @@ export default function App() {
     }
   }, [rider]);
 
+  // Re-fetch on every navigation to the active screen so delivery persists.
   useEffect(() => {
     if (screen === 'available') fetchOrders();
-    if (screen === 'active' && !activeDelivery) fetchActiveDelivery();
-  }, [screen, fetchOrders, fetchActiveDelivery, activeDelivery]);
+    if (screen === 'active') fetchActiveDelivery();
+  }, [screen, fetchOrders, fetchActiveDelivery]);
+
+  // Poll for status updates while waiting for the restaurant to mark ready,
+  // as a fallback for when the socket event doesn't reach this client
+  // (the backend has no record of the rider accepting until markAsPickedUp).
+  const waitingForRestaurant =
+    screen === 'active' &&
+    (activeDelivery?.status === 'accepted' || activeDelivery?.status === 'preparing');
+
+  useEffect(() => {
+    if (!waitingForRestaurant) return;
+    const interval = setInterval(fetchActiveDelivery, 5000);
+    return () => clearInterval(interval);
+  }, [waitingForRestaurant, fetchActiveDelivery]);
 
   useEffect(() => {
     if (!socket) return;
@@ -197,7 +211,7 @@ export default function App() {
       {toast && <div style={styles.toast}>{toast}</div>}
       <div style={styles.header}>
         <h2 style={styles.headerTitle}>🚴 Active Delivery</h2>
-        <button style={styles.smallButton} onClick={() => { setScreen('available'); setActiveDelivery(null); }}>← Back</button>
+        <button style={styles.smallButton} onClick={() => setScreen('available')}>← Back</button>
       </div>
       {!activeDelivery ? (
         <div style={styles.empty}>
