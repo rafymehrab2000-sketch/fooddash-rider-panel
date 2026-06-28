@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 
 const API_URL = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
 const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway.app';
+const DELIVERY_KEY = 'riderActiveDelivery';
 
 export default function App() {
   const [screen, setScreen] = useState('login');
@@ -57,9 +58,17 @@ export default function App() {
     if (!rider) return;
     try {
       const res = await axios.get(`${API_URL}/rider/my-delivery/${rider.name}`);
-      if (res.data) setActiveDelivery(res.data);
+      if (res.data) {
+        setActiveDelivery(res.data);
+        localStorage.setItem(DELIVERY_KEY, JSON.stringify(res.data));
+      } else {
+        const stored = localStorage.getItem(DELIVERY_KEY);
+        if (stored) setActiveDelivery(JSON.parse(stored));
+      }
     } catch (err) {
       console.error('Failed to fetch active delivery');
+      const stored = localStorage.getItem(DELIVERY_KEY);
+      if (stored) setActiveDelivery(JSON.parse(stored));
     }
   }, [rider]);
 
@@ -99,9 +108,20 @@ export default function App() {
       const { orderId, status } = data ?? {};
       if (!orderId || !status) return;
       const id = Number(orderId);
-      setActiveDelivery(prev =>
-        prev?.id === id ? { ...prev, status } : prev
-      );
+      setActiveDelivery(prev => {
+        if (prev?.id !== id) return prev;
+        const updated = { ...prev, status };
+        localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
+        return updated;
+      });
+      if (status === 'ready') {
+        showToast('🍔 Your order is ready for pickup!');
+        if (Notification.permission === 'granted') {
+          new Notification('Order Ready for Pickup! 🍔', {
+            body: 'Head to the restaurant — the order is ready!',
+          });
+        }
+      }
     };
 
     socket.on('rider_available', handleRiderAvailable);
@@ -129,15 +149,19 @@ export default function App() {
     }
   };
 
-  // Accept delivery: store order locally and move to active screen (no API yet)
   const acceptOrder = (order) => {
     setActiveDelivery(order);
+    localStorage.setItem(DELIVERY_KEY, JSON.stringify(order));
     setScreen('active');
   };
 
-  // Mark as picked up: calls the pickup API and optimistically updates status
   const markAsPickedUp = async (id) => {
-    setActiveDelivery(prev => prev ? { ...prev, status: 'out_for_delivery' } : null);
+    setActiveDelivery(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, status: 'out_for_delivery' };
+      localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
+      return updated;
+    });
     try {
       await axios.put(`${API_URL}/rider/${id}/pickup`, { riderName: rider.name });
     } catch (err) {
@@ -152,6 +176,7 @@ export default function App() {
     } catch (err) {
       console.error('Failed to mark as delivered');
     }
+    localStorage.removeItem(DELIVERY_KEY);
     setActiveDelivery(null);
     setScreen('available');
   };
