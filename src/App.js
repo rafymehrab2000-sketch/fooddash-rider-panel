@@ -94,7 +94,13 @@ export default function App() {
   useEffect(() => {
     if (!socket) return;
 
+    // Fires on every status change (backend bug) — only refresh orders, no toast.
     const handleRiderAvailable = () => {
+      fetchOrders();
+    };
+
+    // Only fires when a new order is created — safe to toast here.
+    const handleNewOrder = () => {
       fetchOrders();
       if (Notification.permission === 'granted') {
         new Notification('New Delivery Available 🛵', {
@@ -105,11 +111,19 @@ export default function App() {
     };
 
     const handleStatusChanged = (data) => {
+      console.log('[socket] order_status_changed received:', data);
       const { orderId, status } = data ?? {};
-      if (!orderId || !status) return;
+      if (!orderId || !status) {
+        console.warn('[socket] order_status_changed missing orderId or status', data);
+        return;
+      }
       const id = Number(orderId);
+      console.log(`[socket] updating order #${id} status → "${status}"`);
       setActiveDelivery(prev => {
-        if (prev?.id !== id) return prev;
+        if (prev?.id !== id) {
+          console.log(`[socket] order #${id} is not the active delivery (active: #${prev?.id}), ignoring`);
+          return prev;
+        }
         const updated = { ...prev, status };
         localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
         return updated;
@@ -125,10 +139,12 @@ export default function App() {
     };
 
     socket.on('rider_available', handleRiderAvailable);
+    socket.on('new_order', handleNewOrder);
     socket.on('order_status_changed', handleStatusChanged);
 
     return () => {
       socket.off('rider_available', handleRiderAvailable);
+      socket.off('new_order', handleNewOrder);
       socket.off('order_status_changed', handleStatusChanged);
     };
   }, [socket, fetchOrders, showToast]);
@@ -246,6 +262,23 @@ export default function App() {
         <div style={styles.orderCard}>
           <h3 style={styles.orderId}>Order #{activeDelivery.id}</h3>
 
+          {/* Live status badge */}
+          <div style={styles.statusRow}>
+            <span style={styles.statusLabel}>Live status:</span>
+            <span style={{
+              ...styles.statusBadge,
+              backgroundColor: {
+                accepted: '#2196F3',
+                preparing: '#9C27B0',
+                ready: '#4CAF50',
+                out_for_delivery: '#00BCD4',
+                delivered: '#888',
+              }[activeDelivery.status] ?? '#ccc',
+            }}>
+              {activeDelivery.status}
+            </span>
+          </div>
+
           {/* Status banner */}
           {activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing' ? (
             <div style={styles.waitingBanner}>
@@ -317,6 +350,17 @@ const styles = {
     backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: '8px',
     padding: '12px 16px', marginBottom: '16px', fontWeight: '700', fontSize: '15px',
     border: '1px solid #a5d6a7',
+  },
+  statusRow: {
+    display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px',
+  },
+  statusLabel: {
+    fontSize: '12px', color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px',
+  },
+  statusBadge: {
+    padding: '3px 10px', borderRadius: '20px', color: '#fff',
+    fontSize: '12px', fontWeight: '600', textTransform: 'capitalize',
+    fontFamily: 'monospace',
   },
   waitingNote: {
     marginTop: '12px', fontSize: '12px', color: '#999', textAlign: 'center',
