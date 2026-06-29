@@ -56,8 +56,11 @@ export default function App() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_URL}/rider/available`);
-      setOrders(res.data);
+      const res = await axios.get(`${API_URL}/orders`);
+      const available = res.data.filter(
+        o => !o.assignedRider && !o.assignedRiderId && !['delivered', 'cancelled'].includes(o.status)
+      );
+      setOrders(available);
     } catch { console.error('Failed to fetch available orders'); }
   }, []);
 
@@ -155,6 +158,7 @@ export default function App() {
       const { orderId, status } = data ?? {};
       if (!orderId || !status) return;
       const id = Number(orderId);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
       setActiveDelivery(prev => {
         if (prev?.id !== id) return prev;
         const updated = { ...prev, status };
@@ -191,10 +195,19 @@ export default function App() {
     } catch { setErrorMsg('Invalid email or password'); }
   };
 
-  const acceptOrder = (order) => {
+  const acceptOrder = async (order) => {
     setActiveDelivery(order);
     localStorage.setItem(DELIVERY_KEY, JSON.stringify(order));
     setScreen('active');
+    try {
+      const res = await axios.get(`${API_URL}/orders/${order.id}`);
+      const freshStatus = res.data?.status;
+      if (freshStatus && freshStatus !== order.status) {
+        const updated = { ...order, status: freshStatus };
+        setActiveDelivery(updated);
+        localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
+      }
+    } catch {}
   };
 
   const markAsPickedUp = async (id) => {
