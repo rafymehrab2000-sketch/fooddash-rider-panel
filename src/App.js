@@ -16,7 +16,8 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [isOnline, setIsOnline] = useState(() => localStorage.getItem('riderOnline') !== 'false');
   const [orders, setOrders] = useState([]);
-  const [activeDelivery, setActiveDelivery] = useState(null);
+  const [activeDeliveries, setActiveDeliveries] = useState([]);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [earnings, setEarnings] = useState([]);
   const [earningsFilter, setEarningsFilter] = useState('weekly');
   const [profilePhone, setProfilePhone] = useState('');
@@ -28,7 +29,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast] = useState(null);
-  const prevStatusRef = useRef(null);
+  const prevStatusesRef = useRef({});
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -54,30 +55,27 @@ export default function App() {
     return () => { s.disconnect(); setSocket(null); setConnected(false); };
   }, [token]);
 
+  const hasUnpickedActive = activeDeliveries.some(o => ['accepted', 'preparing', 'ready'].includes(o.status));
+
   const fetchOrders = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/orders`);
-      const available = res.data.filter(
-        o => !o.assignedRider && !o.assignedRiderId && !['delivered', 'cancelled'].includes(o.status)
+      const all = res.data;
+      const available = all.filter(
+        o => !o.assignedRider && !['delivered', 'cancelled'].includes(o.status)
       );
       setOrders(available);
-    } catch { console.error('Failed to fetch available orders'); }
-  }, []);
-
-  const fetchActiveDelivery = useCallback(async () => {
-    if (!rider) return;
-    try {
-      const res = await axios.get(`${API_URL}/rider/my-delivery/${rider.name}`);
-      if (res.data) {
-        setActiveDelivery(res.data);
-        localStorage.setItem(DELIVERY_KEY, JSON.stringify(res.data));
-      } else {
-        const stored = localStorage.getItem(DELIVERY_KEY);
-        if (stored) setActiveDelivery(JSON.parse(stored));
+      if (rider) {
+        const mine = all.filter(
+          o => o.assignedRider === rider.name && !['delivered', 'cancelled'].includes(o.status)
+        );
+        setActiveDeliveries(mine);
+        localStorage.setItem(DELIVERY_KEY, JSON.stringify(mine));
       }
     } catch {
+      console.error('Failed to fetch orders');
       const stored = localStorage.getItem(DELIVERY_KEY);
-      if (stored) setActiveDelivery(JSON.parse(stored));
+      if (stored) setActiveDeliveries(JSON.parse(stored));
     }
   }, [rider]);
 
@@ -93,8 +91,7 @@ export default function App() {
   }, [rider]);
 
   useEffect(() => {
-    if (screen === 'available') fetchOrders();
-    if (screen === 'active') fetchActiveDelivery();
+    if (screen === 'available' || screen === 'active') fetchOrders();
     if (screen === 'earnings') fetchEarnings();
     if (screen === 'profile') {
       const stored = localStorage.getItem(PROFILE_KEY);
@@ -105,42 +102,48 @@ export default function App() {
         setProfileVehicle(p.vehicleType ?? 'Scooter');
       }
     }
-  }, [screen, fetchOrders, fetchActiveDelivery, fetchEarnings]);
+  }, [screen, fetchOrders, fetchEarnings]);
 
-  // Poll GET /orders/:id every 5s on active screen — catches 'ready' status reliably.
+  // Poll GET /orders/:id every 5s per not-yet-ready active delivery — catches 'ready' status reliably.
+  const pendingIds = activeDeliveries.filter(o => ['accepted', 'preparing'].includes(o.status)).map(o => o.id).join(',');
   useEffect(() => {
-    if (screen !== 'active' || !activeDelivery?.id) return;
-    const orderId = activeDelivery.id;
+    if (screen !== 'active' || !pendingIds) return;
+    const ids = pendingIds.split(',').map(Number);
     const poll = async () => {
-      try {
-        const res = await axios.get(`${API_URL}/orders/${orderId}`);
-        const newStatus = res.data?.status;
-        if (!newStatus) return;
-        console.log(`[poll] order #${orderId} status: "${newStatus}"`);
-        setActiveDelivery(prev => {
-          if (!prev || prev.status === newStatus) return prev;
-          console.log(`[poll] "${prev.status}" → "${newStatus}"`);
-          const updated = { ...prev, status: newStatus };
-          localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
-          return updated;
-        });
-      } catch (err) { console.error('[poll] error:', err.message); }
+      for (const id of ids) {
+        try {
+          const res = await axios.get(`${API_URL}/orders/${id}`);
+          const newStatus = res.data?.status;
+          if (!newStatus) continue;
+          setActiveDeliveries(prev => {
+            const target = prev.find(o => o.id === id);
+            if (!target || target.status === newStatus) return prev;
+            const updated = prev.map(o => o.id === id ? { ...o, status: newStatus } : o);
+            localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
+            return updated;
+          });
+        } catch (err) { console.error('[poll] error:', err.message); }
+      }
     };
     poll();
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
-  }, [screen, activeDelivery?.id]);
+  }, [screen, pendingIds]);
 
-  // Single notification trigger for 'ready' — covers both poll and socket.
+  // Notification trigger for 'ready' — covers both poll and socket, per delivery.
   useEffect(() => {
-    if (activeDelivery?.status === 'ready' && prevStatusRef.current !== 'ready') {
-      showToast('🍔 Your order is ready for pickup!');
-      if (Notification.permission === 'granted') {
-        new Notification('Order Ready for Pickup! 🍔', { body: 'Head to the restaurant — the order is ready!' });
+    activeDeliveries.forEach(o => {
+      if (o.status === 'ready' && prevStatusesRef.current[o.id] !== 'ready') {
+        showToast(`🍔 Order #${o.id} is ready for pickup!`);
+        if (Notification.permission === 'granted') {
+          new Notification('Order Ready for Pickup! 🍔', { body: `Order #${o.id} — head to the restaurant!` });
+        }
       }
-    }
-    prevStatusRef.current = activeDelivery?.status ?? null;
-  }, [activeDelivery?.status, showToast]);
+    });
+    const next = {};
+    activeDeliveries.forEach(o => { next[o.id] = o.status; });
+    prevStatusesRef.current = next;
+  }, [activeDeliveries, showToast]);
 
   useEffect(() => {
     if (!socket) return;
@@ -153,25 +156,32 @@ export default function App() {
       }
       showToast('New delivery available! 🛵');
     };
+    const handleOrderTaken = (data) => {
+      const { orderId } = data ?? {};
+      if (!orderId) return;
+      const id = Number(orderId);
+      setOrders(prev => prev.filter(o => o.id !== id));
+    };
     const handleStatusChanged = (data) => {
-      console.log('[socket] order_status_changed:', data);
       const { orderId, status } = data ?? {};
       if (!orderId || !status) return;
       const id = Number(orderId);
       setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-      setActiveDelivery(prev => {
-        if (prev?.id !== id) return prev;
-        const updated = { ...prev, status };
+      setActiveDeliveries(prev => {
+        if (!prev.some(o => o.id === id)) return prev;
+        const updated = prev.map(o => o.id === id ? { ...o, status } : o);
         localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
         return updated;
       });
     };
     socket.on('rider_available', handleRiderAvailable);
     socket.on('new_order', handleNewOrder);
+    socket.on('order_taken', handleOrderTaken);
     socket.on('order_status_changed', handleStatusChanged);
     return () => {
       socket.off('rider_available', handleRiderAvailable);
       socket.off('new_order', handleNewOrder);
+      socket.off('order_taken', handleOrderTaken);
       socket.off('order_status_changed', handleStatusChanged);
     };
   }, [socket, fetchOrders, showToast, isOnline]);
@@ -196,37 +206,45 @@ export default function App() {
   };
 
   const acceptOrder = async (order) => {
-    setActiveDelivery(order);
-    localStorage.setItem(DELIVERY_KEY, JSON.stringify(order));
-    setScreen('active');
     try {
-      const res = await axios.get(`${API_URL}/orders/${order.id}`);
-      const freshStatus = res.data?.status;
-      if (freshStatus && freshStatus !== order.status) {
-        const updated = { ...order, status: freshStatus };
-        setActiveDelivery(updated);
+      const res = await axios.put(`${API_URL}/rider/${order.id}/accept`, { riderName: rider.name });
+      const accepted = res.data;
+      setOrders(prev => prev.filter(o => o.id !== order.id));
+      setActiveDeliveries(prev => {
+        const updated = [...prev, accepted];
         localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
+        return updated;
+      });
+      setSelectedDeliveryId(accepted.id);
+      setScreen('active');
+    } catch (err) {
+      if (err.response?.status === 409) {
+        showToast('Sorry, another rider already took that order.');
+        fetchOrders();
+      } else {
+        showToast('Failed to accept delivery. Please try again.');
       }
-    } catch {}
+    }
   };
 
   const markAsPickedUp = async (id) => {
-    setActiveDelivery(prev => {
-      if (!prev) return null;
-      const updated = { ...prev, status: 'out_for_delivery' };
+    setActiveDeliveries(prev => {
+      const updated = prev.map(o => o.id === id ? { ...o, status: 'out_for_delivery' } : o);
       localStorage.setItem(DELIVERY_KEY, JSON.stringify(updated));
       return updated;
     });
     try {
       await axios.put(`${API_URL}/rider/${id}/pickup`, { riderName: rider.name });
-    } catch { fetchActiveDelivery(); }
+    } catch { fetchOrders(); }
   };
 
   const deliverOrder = async (id) => {
     try { await axios.put(`${API_URL}/rider/${id}/deliver`); } catch { /* swallow */ }
-    localStorage.removeItem(DELIVERY_KEY);
-    setActiveDelivery(null);
-    setScreen('available');
+    const remaining = activeDeliveries.filter(o => o.id !== id);
+    localStorage.setItem(DELIVERY_KEY, JSON.stringify(remaining));
+    setActiveDeliveries(remaining);
+    setSelectedDeliveryId(null);
+    setScreen(remaining.length > 0 ? 'active' : 'available');
   };
 
   const saveProfile = async () => {
@@ -333,7 +351,7 @@ export default function App() {
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
             <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
-            <button style={styles.smallBtn} onClick={() => setScreen('active')}>My Delivery</button>
+            <button style={styles.smallBtn} onClick={() => setScreen('active')}>My Deliveries{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}</button>
           </div>
         </div>
       </div>
@@ -343,6 +361,13 @@ export default function App() {
           <p style={styles.offlineIcon}>🔴</p>
           <p style={styles.offlineTitle}>You're Offline</p>
           <p style={styles.offlineText}>Toggle online to see available deliveries and receive notifications.</p>
+        </div>
+      ) : hasUnpickedActive ? (
+        <div style={styles.offlineBanner}>
+          <p style={styles.offlineIcon}>📦</p>
+          <p style={styles.offlineTitle}>Pick up your current order first</p>
+          <p style={styles.offlineText}>You have a delivery waiting to be picked up. Complete pickup before accepting new deliveries.</p>
+          <button style={{ ...styles.primaryBtn, marginTop: 16 }} onClick={() => setScreen('active')}>View My Deliveries</button>
         </div>
       ) : (
         <>
@@ -368,50 +393,85 @@ export default function App() {
     </div>
   );
 
-  // ─── ACTIVE DELIVERY ─────────────────────────────────────────────────────────
+  // ─── ACTIVE DELIVERIES ───────────────────────────────────────────────────────
 
-  if (screen === 'active') return (
-    <div style={styles.container}>
-      {toast && <div style={styles.toast}>{toast}</div>}
-      <div style={styles.header}>
-        <h2 style={styles.headerTitle}>🚴 Active Delivery</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <OnlineToggle />
-          <NavButtons />
+  if (screen === 'active') {
+    const selected = activeDeliveries.find(o => o.id === selectedDeliveryId) || null;
+
+    if (!selected) return (
+      <div style={styles.container}>
+        {toast && <div style={styles.toast}>{toast}</div>}
+        <div style={styles.header}>
+          <h2 style={styles.headerTitle}>🚴 Active Deliveries</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <OnlineToggle />
+            <NavButtons />
+          </div>
         </div>
-      </div>
 
-      {!activeDelivery ? (
-        <div style={styles.empty}><p style={styles.emptyText}>No active delivery</p></div>
-      ) : (
-        <>
+        {activeDeliveries.length === 0 ? (
+          <div style={styles.empty}><p style={styles.emptyText}>No active deliveries</p></div>
+        ) : (
+          activeDeliveries.map(o => (
+            <div key={o.id} style={{ ...styles.orderCard, cursor: 'pointer' }} onClick={() => setSelectedDeliveryId(o.id)}>
+              <div style={styles.statusRow}>
+                <h3 style={styles.orderId}>Order #{o.id}</h3>
+                <span style={{ ...styles.statusBadge, backgroundColor: STATUS_COLORS[o.status] ?? '#ccc' }}>
+                  {o.status}
+                </span>
+              </div>
+              <p style={styles.orderInfo}>📍 {o.restaurant?.name}</p>
+              <p style={styles.orderInfo}>🏠 {o.customerAddress}</p>
+              <p style={styles.orderTotal}>Total: €{Number(o.total).toFixed(2)}</p>
+              <p style={{ ...styles.waitingNote, textAlign: 'left', fontStyle: 'normal', color: '#ff6b35', fontWeight: 700 }}>Tap to view details →</p>
+            </div>
+          ))
+        )}
+      </div>
+    );
+
+    return (
+      <div style={styles.container}>
+        {toast && <div style={styles.toast}>{toast}</div>}
+        <div style={styles.header}>
+          <h2 style={styles.headerTitle}>🚴 Delivery #{selected.id}</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <OnlineToggle />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
+              <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
+              <button style={styles.smallBtn} onClick={() => setSelectedDeliveryId(null)}>← Back to List</button>
+            </div>
+          </div>
+        </div>
+
         <div style={styles.orderCard}>
-          <h3 style={styles.orderId}>Order #{activeDelivery.id}</h3>
+          <h3 style={styles.orderId}>Order #{selected.id}</h3>
 
           {/* Live status badge */}
           <div style={styles.statusRow}>
             <span style={styles.statusLabel}>Live status:</span>
-            <span style={{ ...styles.statusBadge, backgroundColor: STATUS_COLORS[activeDelivery.status] ?? '#ccc' }}>
-              {activeDelivery.status}
+            <span style={{ ...styles.statusBadge, backgroundColor: STATUS_COLORS[selected.status] ?? '#ccc' }}>
+              {selected.status}
             </span>
           </div>
 
           {/* Status banner */}
-          {(activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing') && (
+          {(selected.status === 'accepted' || selected.status === 'preparing') && (
             <div style={styles.waitingBanner}>⏳ Waiting for restaurant to prepare your order…</div>
           )}
-          {activeDelivery.status === 'ready' && (
+          {selected.status === 'ready' && (
             <div style={styles.readyBanner}>🍔 Ready for Pickup!</div>
           )}
 
           {/* Pickup info */}
           <div style={styles.section}>
             <p style={styles.sectionTitle}>📍 Pickup</p>
-            <p style={styles.orderInfo}>{activeDelivery.restaurant?.name}</p>
-            <p style={styles.orderInfo}>{activeDelivery.restaurant?.address}</p>
-            {activeDelivery.restaurant?.phone ? (
-              <a href={`tel:${activeDelivery.restaurant.phone}`} style={styles.callBtn}>
-                📞 Call Restaurant — {activeDelivery.restaurant.phone}
+            <p style={styles.orderInfo}>{selected.restaurant?.name}</p>
+            <p style={styles.orderInfo}>{selected.restaurant?.address}</p>
+            {selected.restaurant?.phone ? (
+              <a href={`tel:${selected.restaurant.phone}`} style={styles.callBtn}>
+                📞 Call Restaurant — {selected.restaurant.phone}
               </a>
             ) : (
               <p style={styles.noPhone}>No restaurant phone on file</p>
@@ -421,42 +481,41 @@ export default function App() {
           {/* Delivery info */}
           <div style={styles.section}>
             <p style={styles.sectionTitle}>🏠 Delivery</p>
-            <p style={styles.orderInfo}>{activeDelivery.customerName}</p>
-            <p style={styles.orderInfo}>{activeDelivery.customerAddress}</p>
-            <a href={`tel:${activeDelivery.customerPhone}`} style={styles.callBtn}>
-              📞 Call Customer — {activeDelivery.customerPhone}
+            <p style={styles.orderInfo}>{selected.customerName}</p>
+            <p style={styles.orderInfo}>{selected.customerAddress}</p>
+            <a href={`tel:${selected.customerPhone}`} style={styles.callBtn}>
+              📞 Call Customer — {selected.customerPhone}
             </a>
           </div>
 
           {/* Special notes */}
           <div style={styles.section}>
             <p style={styles.sectionTitle}>📝 Delivery Notes</p>
-            <p style={activeDelivery.notes ? styles.orderInfo : styles.noPhone}>
-              {activeDelivery.notes ?? 'No special notes'}
+            <p style={selected.notes ? styles.orderInfo : styles.noPhone}>
+              {selected.notes ?? 'No special notes'}
             </p>
           </div>
 
-          <p style={styles.orderTotal}>Total: €{Number(activeDelivery.total).toFixed(2)}</p>
+          <p style={styles.orderTotal}>Total: €{Number(selected.total).toFixed(2)}</p>
 
-          {activeDelivery.status === 'ready' && (
-            <button style={styles.pickupBtn} onClick={() => markAsPickedUp(activeDelivery.id)}>
+          {selected.status === 'ready' && (
+            <button style={styles.pickupBtn} onClick={() => markAsPickedUp(selected.id)}>
               🛵 Mark as Picked Up
             </button>
           )}
-          {(activeDelivery.status === 'out_for_delivery' || activeDelivery.status === 'picked_up') && (
-            <button style={styles.deliverBtn} onClick={() => deliverOrder(activeDelivery.id)}>
+          {(selected.status === 'out_for_delivery' || selected.status === 'picked_up') && (
+            <button style={styles.deliverBtn} onClick={() => deliverOrder(selected.id)}>
               ✅ Mark as Delivered
             </button>
           )}
-          {(activeDelivery.status === 'accepted' || activeDelivery.status === 'preparing') && (
+          {(selected.status === 'accepted' || selected.status === 'preparing') && (
             <p style={styles.waitingNote}>Polling every 5s — pickup button appears once restaurant marks ready.</p>
           )}
         </div>
-        <DeliveryMap activeDelivery={activeDelivery} />
-        </>
-      )}
-    </div>
-  );
+        <DeliveryMap activeDelivery={selected} />
+      </div>
+    );
+  }
 
   // ─── EARNINGS ────────────────────────────────────────────────────────────────
 
