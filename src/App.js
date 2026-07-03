@@ -59,14 +59,12 @@ export default function App() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_URL}/orders`);
-      const all = res.data;
-      const available = all.filter(
-        o => !o.assignedRider && !['delivered', 'cancelled'].includes(o.status)
-      );
-      setOrders(available);
+      const availableRes = await axios.get(`${API_URL}/rider/available`);
+      setOrders(availableRes.data);
+
       if (rider) {
-        const mine = all.filter(
+        const allRes = await axios.get(`${API_URL}/orders`);
+        const mine = allRes.data.filter(
           o => o.assignedRider === rider.name && !['delivered', 'cancelled'].includes(o.status)
         );
         setActiveDeliveries(mine);
