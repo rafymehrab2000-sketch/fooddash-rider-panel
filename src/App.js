@@ -320,8 +320,9 @@ export default function App() {
   if (screen === 'login') return (
     <div style={styles.container}>
       <div style={styles.loginCard}>
+        <img src="/logo.png" alt="Tuokaa" style={styles.loginLogo} />
         <h1 style={styles.loginTitle}>🛵 Rider Panel</h1>
-        <p style={styles.loginSub}>FoodDash Delivery</p>
+        <p style={styles.loginSub}>Tuokaa Delivery</p>
         {errorMsg && <p style={styles.errorMsg}>{errorMsg}</p>}
         <input style={styles.input} placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
         <input style={styles.input} placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
@@ -673,6 +674,7 @@ const styles = {
 
   // Login
   loginCard: { maxWidth: 400, margin: '100px auto', backgroundColor: '#fff', padding: 40, borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' },
+  loginLogo: { display: 'block', width: 64, height: 64, borderRadius: 14, objectFit: 'cover', margin: '0 auto 12px' },
   loginTitle: { textAlign: 'center', color: '#ff6b35', fontSize: 32, margin: '0 0 8px' },
   loginSub: { textAlign: 'center', color: '#888', marginBottom: 24 },
   errorMsg: { color: 'red', textAlign: 'center', marginBottom: 12 },
