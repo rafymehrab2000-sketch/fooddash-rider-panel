@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import DeliveryMap from './DeliveryMap';
+import SupportChat from './SupportChat';
 
 const API_URL = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
 const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway.app';
@@ -29,6 +30,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast] = useState(null);
+  const [supportOpen, setSupportOpen] = useState(false);
   const prevStatusesRef = useRef({});
 
   const showToast = useCallback((msg) => {
@@ -350,9 +352,12 @@ export default function App() {
             <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
             <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
             <button style={styles.smallBtn} onClick={() => setScreen('active')}>My Deliveries{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}</button>
+            <button style={styles.smallBtn} onClick={() => setSupportOpen(true)}>💬 Support</button>
           </div>
         </div>
       </div>
+
+      {supportOpen && <SupportChat onClose={() => setSupportOpen(false)} />}
 
       {!isOnline ? (
         <div style={styles.offlineBanner}>
