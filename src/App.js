@@ -62,12 +62,14 @@ export default function App() {
   const fetchOrders = useCallback(async () => {
     try {
       const availableRes = await axios.get(`${API_URL}/rider/available`);
-      setOrders(availableRes.data);
+      setOrders(availableRes.data.filter(o => o.deliveryType == null || o.deliveryType === 'platform'));
 
       if (rider) {
         const allRes = await axios.get(`${API_URL}/orders`);
         const mine = allRes.data.filter(
-          o => o.assignedRider === rider.name && !['delivered', 'cancelled'].includes(o.status)
+          o => o.assignedRider === rider.name
+            && !['delivered', 'cancelled'].includes(o.status)
+            && (o.deliveryType == null || o.deliveryType === 'platform')
         );
         setActiveDeliveries(mine);
         localStorage.setItem(DELIVERY_KEY, JSON.stringify(mine));
