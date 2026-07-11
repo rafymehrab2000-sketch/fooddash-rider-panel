@@ -19,7 +19,13 @@ export default function SupportChat({ onClose }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [ended, setEnded] = useState(false);
+  const [sessionStart, setSessionStart] = useState(0);
   const messagesEndRef = useRef(null);
+
+  const visibleMessages = messages.filter(
+    msg => new Date(msg.createdAt).getTime() >= sessionStart
+  );
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -42,6 +48,7 @@ export default function SupportChat({ onClose }) {
   }, [messages.length]);
 
   const handleSend = async () => {
+    if (ended) return;
     const message = text.trim();
     if (!message) return;
     try {
@@ -60,21 +67,42 @@ export default function SupportChat({ onClose }) {
     }
   };
 
+  const handleEndConversation = () => {
+    if (window.confirm('Are you sure you want to end this conversation?')) {
+      setEnded(true);
+    }
+  };
+
+  const handleStartNewChat = () => {
+    setSessionStart(Date.now());
+    setEnded(false);
+    setText('');
+    setError('');
+  };
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
         <div style={styles.header}>
           <span style={styles.title}>💬 Rider Support</span>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+          <div style={styles.headerActions}>
+            <button
+              style={styles.endBtn}
+              onClick={ended ? handleStartNewChat : handleEndConversation}
+            >
+              {ended ? 'Start New Chat' : 'End Conversation'}
+            </button>
+            <button style={styles.closeBtn} onClick={onClose}>✕</button>
+          </div>
         </div>
 
         {error && <div style={styles.error}>{error}</div>}
 
         <div style={styles.messageList}>
-          {messages.length === 0 ? (
+          {visibleMessages.length === 0 ? (
             <p style={styles.empty}>No messages yet. Send us a message and we'll get back to you.</p>
           ) : (
-            messages.map(msg => (
+            visibleMessages.map(msg => (
               <div
                 key={msg.id}
                 style={{ ...styles.messageRow, justifyContent: msg.senderType === 'rider' ? 'flex-end' : 'flex-start' }}
@@ -88,6 +116,7 @@ export default function SupportChat({ onClose }) {
               </div>
             ))
           )}
+          {ended && <p style={styles.endedNotice}>Conversation ended</p>}
           <div ref={messagesEndRef} />
         </div>
 
@@ -95,12 +124,13 @@ export default function SupportChat({ onClose }) {
           <input
             style={styles.replyInput}
             type="text"
-            placeholder="Type a message..."
+            placeholder={ended ? 'Conversation ended' : 'Type a message...'}
             value={text}
             onChange={e => setText(e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={ended}
           />
-          <button style={styles.sendButton} onClick={handleSend} disabled={!text.trim()}>Send</button>
+          <button style={styles.sendButton} onClick={handleSend} disabled={ended || !text.trim()}>Send</button>
         </div>
       </div>
     </div>
@@ -122,6 +152,11 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   },
   title: { fontWeight: 700, fontSize: 16 },
+  headerActions: { display: 'flex', alignItems: 'center', gap: 8 },
+  endBtn: {
+    background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff',
+    borderRadius: 14, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  },
   closeBtn: {
     background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff',
     borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 14,
@@ -129,6 +164,7 @@ const styles = {
   error: { backgroundColor: '#ffe0e0', color: '#cc0000', padding: '10px 16px', fontSize: 13 },
   messageList: { flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 },
   empty: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 24 },
+  endedNotice: { color: '#888', fontSize: 12, textAlign: 'center', margin: '8px 0 0' },
   messageRow: { display: 'flex' },
   bubbleRider: {
     backgroundColor: '#ff6b35', color: '#fff', padding: '10px 14px',
