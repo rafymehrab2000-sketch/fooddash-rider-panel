@@ -9,6 +9,27 @@ const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway
 const DELIVERY_KEY = 'riderActiveDelivery';
 const PROFILE_KEY = 'riderProfile';
 
+function formatFinnishPhone(raw) {
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('358')) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  digits = digits.slice(0, 9);
+  if (!digits) return '';
+  let out = digits.slice(0, 2);
+  if (digits.length > 2) out += ' ' + digits.slice(2, 5);
+  if (digits.length > 5) out += ' ' + digits.slice(5, 9);
+  return out;
+}
+
+function formatYTunnus(raw) {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 7) return digits;
+  return digits.slice(0, 7) + '-' + digits.slice(7, 8);
+}
+
+const isPhoneValid = phone => /^\d{2} \d{3} \d{4}$/.test(phone);
+const isYTunnusValid = ytunnus => /^\d{7}-\d$/.test(ytunnus);
+
 export default function App() {
   const [screen, setScreen] = useState('login');
   const [rider, setRider] = useState(null);
@@ -99,8 +120,8 @@ export default function App() {
       const stored = localStorage.getItem(PROFILE_KEY);
       if (stored) {
         const p = JSON.parse(stored);
-        setProfilePhone(p.phone ?? '');
-        setProfileYtunnus(p.ytunnus ?? '');
+        setProfilePhone(formatFinnishPhone((p.phone ?? '').replace('+358', '')));
+        setProfileYtunnus(formatYTunnus(p.ytunnus ?? ''));
         setProfileVehicle(p.vehicleType ?? 'Scooter');
       }
     }
@@ -250,8 +271,13 @@ export default function App() {
   };
 
   const saveProfile = async () => {
+    if (profileYtunnus && !isYTunnusValid(profileYtunnus)) return;
     setProfileSaving(true);
-    const profileData = { phone: profilePhone, ytunnus: profileYtunnus, vehicleType: profileVehicle };
+    const profileData = {
+      phone: profilePhone ? `+358 ${profilePhone}` : '',
+      ytunnus: profileYtunnus,
+      vehicleType: profileVehicle,
+    };
     localStorage.setItem(PROFILE_KEY, JSON.stringify(profileData));
     try {
       await axios.put(`${API_URL}/users/profile`, profileData);
@@ -624,20 +650,34 @@ export default function App() {
         <p style={styles.sectionTitle}>Business Details</p>
 
         <label style={styles.fieldLabel}>Phone Number</label>
-        <input
-          style={styles.input}
-          placeholder="+358 40 123 4567"
-          value={profilePhone}
-          onChange={e => setProfilePhone(e.target.value)}
-        />
+        <div style={styles.phoneInputWrap}>
+          <span style={styles.phonePrefix}>+358</span>
+          <input
+            style={styles.phoneInput}
+            placeholder="40 123 4567"
+            value={profilePhone}
+            onChange={e => setProfilePhone(formatFinnishPhone(e.target.value))}
+          />
+          {profilePhone && (
+            <span style={{ color: isPhoneValid(profilePhone) ? '#2e7d32' : '#c62828', fontSize: 14, flexShrink: 0 }}>
+              {isPhoneValid(profilePhone) ? '✓' : '✗'}
+            </span>
+          )}
+        </div>
+        <p style={styles.fieldHint}>Format: +358 XX XXX XXXX</p>
 
         <label style={styles.fieldLabel}>Y-tunnus (Finnish Business ID)</label>
         <input
           style={styles.input}
           placeholder="1234567-8"
           value={profileYtunnus}
-          onChange={e => setProfileYtunnus(e.target.value)}
+          onChange={e => setProfileYtunnus(formatYTunnus(e.target.value))}
         />
+        <p style={profileYtunnus && !isYTunnusValid(profileYtunnus) ? styles.fieldHintError : styles.fieldHint}>
+          {profileYtunnus && !isYTunnusValid(profileYtunnus)
+            ? 'Invalid format — use 7 digits, a dash, then 1 check digit (e.g. 1234567-8)'
+            : 'Format: XXXXXXX-X (7 digits, dash, 1 check digit)'}
+        </p>
 
         <label style={styles.fieldLabel}>Vehicle Type</label>
         <select
@@ -651,9 +691,9 @@ export default function App() {
         </select>
 
         <button
-          style={{ ...styles.primaryBtn, marginTop: 8, opacity: profileSaving ? 0.7 : 1 }}
+          style={{ ...styles.primaryBtn, marginTop: 8, opacity: (profileSaving || (profileYtunnus && !isYTunnusValid(profileYtunnus))) ? 0.7 : 1 }}
           onClick={saveProfile}
-          disabled={profileSaving}
+          disabled={profileSaving || (profileYtunnus && !isYTunnusValid(profileYtunnus))}
         >
           {profileSaving ? 'Saving…' : profileSaved ? '✅ Saved!' : 'Save Profile'}
         </button>
@@ -769,4 +809,9 @@ const styles = {
   profileLabel: { fontSize: 13, color: '#888', fontWeight: 600 },
   profileValue: { fontSize: 14, color: '#333', fontWeight: 600 },
   fieldLabel: { display: 'block', fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, marginTop: 4 },
+  phoneInputWrap: { display: 'flex', alignItems: 'center', width: '100%', padding: '0 12px', marginBottom: 4, borderRadius: 8, border: '1px solid #ddd', backgroundColor: '#fff', boxSizing: 'border-box' },
+  phonePrefix: { fontSize: 15, fontWeight: 700, color: '#555', marginRight: 6, flexShrink: 0 },
+  phoneInput: { flex: 1, minWidth: 0, padding: '12px 0', border: 'none', outline: 'none', fontSize: 15, backgroundColor: 'transparent' },
+  fieldHint: { fontSize: 11, color: '#999', margin: '0 0 12px' },
+  fieldHintError: { fontSize: 11, color: '#c62828', margin: '0 0 12px', fontWeight: 600 },
 };
