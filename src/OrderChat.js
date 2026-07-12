@@ -68,19 +68,19 @@ export default function OrderChat({ orderId, customerName, socket, onClose }) {
   };
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={e => e.stopPropagation()}>
+    <div className="tk-fade-in" style={styles.overlay} onClick={onClose}>
+      <div className="tk-pop" style={styles.modal} onClick={e => e.stopPropagation()}>
         <div style={styles.header}>
           <div>
             <span style={styles.title}>💬 {customerName || 'Customer'}</span>
             <div style={styles.subtitle}>Order #{orderId}</div>
           </div>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
+          <button className="tk-hover tk-press" style={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 
         {error && <div style={styles.error}>{error}</div>}
 
-        <div style={styles.messageList}>
+        <div className="tk-scroll-light" style={styles.messageList}>
           {messages.length === 0 ? (
             <p style={styles.empty}>No messages yet. Send the customer an update.</p>
           ) : (
@@ -91,7 +91,7 @@ export default function OrderChat({ orderId, customerName, socket, onClose }) {
               >
                 <div style={msg.senderRole === 'rider' ? styles.bubbleRider : styles.bubbleCustomer}>
                   <div>{msg.message}</div>
-                  <div style={{ ...styles.bubbleTime, color: msg.senderRole === 'rider' ? 'rgba(255,255,255,0.8)' : '#888' }}>
+                  <div style={{ ...styles.bubbleTime, color: msg.senderRole === 'rider' ? 'rgba(255,255,255,0.75)' : '#98A0B3' }}>
                     {timeAgo(msg.createdAt)}
                   </div>
                 </div>
@@ -110,7 +110,7 @@ export default function OrderChat({ orderId, customerName, socket, onClose }) {
             onChange={e => setText(e.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <button style={styles.sendButton} onClick={handleSend} disabled={!text.trim()}>Send</button>
+          <button className="tk-hover tk-press" style={styles.sendButton} onClick={handleSend} disabled={!text.trim()}>Send</button>
         </div>
       </div>
     </div>
@@ -119,44 +119,45 @@ export default function OrderChat({ orderId, customerName, socket, onClose }) {
 
 const styles = {
   overlay: {
-    position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
+    position: 'fixed', inset: 0, backgroundColor: 'rgba(18,27,52,0.55)', backdropFilter: 'blur(2px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16,
   },
   modal: {
-    backgroundColor: '#fff', borderRadius: 16, width: '100%', maxWidth: 420,
+    backgroundColor: '#fff', borderRadius: 22, width: '100%', maxWidth: 420,
     height: '70vh', maxHeight: 560, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+    boxShadow: '0 12px 32px rgba(26,39,68,0.14), 0 2px 8px rgba(26,39,68,0.08)',
   },
   header: {
-    backgroundColor: '#ff6b35', color: '#fff', padding: '14px 18px',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: 'linear-gradient(135deg, #1A2744 0%, #253358 100%)', color: '#fff', padding: '16px 18px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '3px solid #F5A623',
   },
   title: { fontWeight: 700, fontSize: 16 },
-  subtitle: { fontSize: 12, opacity: 0.85, marginTop: 2 },
+  subtitle: { fontSize: 12, opacity: 0.75, marginTop: 2 },
   closeBtn: {
-    background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff',
-    borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 14,
+    background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.28)', color: '#fff',
+    borderRadius: 8, width: 30, height: 30, cursor: 'pointer', fontSize: 14,
   },
-  error: { backgroundColor: '#ffe0e0', color: '#cc0000', padding: '10px 16px', fontSize: 13 },
-  messageList: { flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 },
-  empty: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 24 },
+  error: { backgroundColor: '#FDEDED', color: '#E5484D', padding: '10px 16px', fontSize: 13, fontWeight: 600 },
+  messageList: { flex: 1, padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, backgroundColor: '#F7F8FC' },
+  empty: { color: '#98A0B3', fontSize: 13, textAlign: 'center', marginTop: 24 },
   messageRow: { display: 'flex' },
   bubbleRider: {
-    backgroundColor: '#ff6b35', color: '#fff', padding: '10px 14px',
-    borderRadius: '14px 14px 2px 14px', maxWidth: '75%', fontSize: 14,
+    background: 'linear-gradient(135deg, #1A2744, #253358)', color: '#fff', padding: '10px 14px',
+    borderRadius: '16px 16px 4px 16px', maxWidth: '75%', fontSize: 14, boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)',
   },
   bubbleCustomer: {
-    backgroundColor: '#eee', color: '#1a1a1a', padding: '10px 14px',
-    borderRadius: '14px 14px 14px 2px', maxWidth: '75%', fontSize: 14,
+    backgroundColor: '#fff', color: '#1A2744', padding: '10px 14px', border: '1px solid #E4E8F1',
+    borderRadius: '16px 16px 16px 4px', maxWidth: '75%', fontSize: 14, boxShadow: '0 1px 3px rgba(26,39,68,0.06)',
   },
   bubbleTime: { fontSize: 10, marginTop: 4, textAlign: 'right' },
-  replyRow: { display: 'flex', gap: 10, padding: '14px 16px', borderTop: '1px solid #eee' },
+  replyRow: { display: 'flex', gap: 10, padding: '14px 16px', borderTop: '1px solid #E4E8F1', backgroundColor: '#fff' },
   replyInput: {
-    flex: 1, padding: '10px 14px', borderRadius: 20, border: '1px solid #ddd',
-    fontSize: 14, outline: 'none', boxSizing: 'border-box',
+    flex: 1, padding: '11px 16px', borderRadius: 22, border: '1.5px solid #E4E8F1',
+    fontSize: 14, outline: 'none', boxSizing: 'border-box', color: '#1A2744',
   },
   sendButton: {
-    padding: '10px 20px', borderRadius: 20, border: 'none',
-    backgroundColor: '#ff6b35', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+    padding: '11px 22px', borderRadius: 22, border: 'none',
+    background: 'linear-gradient(135deg, #F5A623, #D98C0F)', color: '#1A2744', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+    boxShadow: '0 6px 18px rgba(245,166,35,0.35)',
   },
 };

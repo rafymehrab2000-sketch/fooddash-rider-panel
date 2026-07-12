@@ -67,8 +67,8 @@ function MapBounds({ riderPos, restaurantPos, customerPos }) {
 
 function LegendDot({ color, label }) {
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#666' }}>
-      <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color, display: 'inline-block', flexShrink: 0 }} />
+    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#6B7488', fontWeight: 600 }}>
+      <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: color, display: 'inline-block', flexShrink: 0, boxShadow: '0 0 0 3px rgba(0,0,0,0.04)' }} />
       {label}
     </span>
   );
@@ -123,7 +123,7 @@ export default function DeliveryMap({ activeDelivery }) {
     : null;
 
   return (
-    <div style={s.wrap}>
+    <div className="tk-slide-up" style={s.wrap}>
       <p style={s.heading}>📍 Live Map</p>
 
       <div style={s.infoRow}>
@@ -137,7 +137,7 @@ export default function DeliveryMap({ activeDelivery }) {
               : 'Geocoding addresses…'}
         </span>
         {mapsUrl && (
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={s.navBtn}>
+          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="tk-hover tk-press" style={s.navBtn}>
             🗺️ Navigate with Google Maps
           </a>
         )}
@@ -187,12 +187,12 @@ export default function DeliveryMap({ activeDelivery }) {
 }
 
 const s = {
-  wrap: { backgroundColor: '#fff', borderRadius: 12, padding: '16px 16px 12px', marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  heading: { fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#888', margin: '0 0 10px' },
-  infoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8, flexWrap: 'wrap' },
-  distText: { fontSize: 13, color: '#333', fontWeight: 600 },
-  navBtn: { flexShrink: 0, padding: '7px 14px', backgroundColor: '#1a73e8', color: '#fff', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 700 },
-  geoWarn: { fontSize: 12, color: '#e65100', backgroundColor: '#fff3e0', padding: '8px 12px', borderRadius: 6, margin: '0 0 10px', border: '1px solid #ffcc80' },
-  mapWrap: { height: 280, borderRadius: 10, overflow: 'hidden', border: '1px solid #eee' },
-  legend: { display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' },
+  wrap: { backgroundColor: '#fff', borderRadius: 16, padding: '18px 18px 14px', marginBottom: 16, boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)', border: '1px solid #E4E8F1' },
+  heading: { fontWeight: 700, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#98A0B3', margin: '0 0 12px' },
+  infoRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' },
+  distText: { fontSize: 13, color: '#1A2744', fontWeight: 700 },
+  navBtn: { flexShrink: 0, padding: '9px 16px', background: 'linear-gradient(135deg, #1A2744, #253358)', color: '#fff', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 700, boxShadow: '0 4px 16px rgba(26,39,68,0.08), 0 1px 3px rgba(26,39,68,0.06)' },
+  geoWarn: { fontSize: 12, color: '#8a5a00', backgroundColor: '#FFF4E0', padding: '10px 12px', borderRadius: 10, margin: '0 0 12px', border: '1px solid #FFDFA3', fontWeight: 500 },
+  mapWrap: { height: 280, borderRadius: 14, overflow: 'hidden', border: '1px solid #E4E8F1' },
+  legend: { display: 'flex', gap: 14, marginTop: 12, flexWrap: 'wrap' },
 };

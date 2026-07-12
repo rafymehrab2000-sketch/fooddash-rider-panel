@@ -355,7 +355,7 @@ export default function App() {
   // ─── Shared nav helpers ──────────────────────────────────────────────────────
 
   const ChatBell = () => (
-    <button style={styles.smallBtn} onClick={openChatBell} title="Messages">
+    <button className="tk-hover tk-press" style={styles.smallBtn} onClick={openChatBell} title="Messages">
       🔔{totalChatUnread > 0 ? ` ${totalChatUnread}` : ''}
     </button>
   );
@@ -363,16 +363,16 @@ export default function App() {
   const NavButtons = ({ backTo = 'available' }) => (
     <div style={{ display: 'flex', gap: 6 }}>
       <ChatBell />
-      {screen !== 'earnings' && <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>}
-      {screen !== 'profile' && <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>}
-      {screen !== 'available' && <button style={styles.smallBtn} onClick={() => setScreen(backTo)}>← Back</button>}
+      {screen !== 'earnings' && <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>}
+      {screen !== 'profile' && <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>}
+      {screen !== 'available' && <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen(backTo)}>← Back</button>}
     </div>
   );
 
   const OnlineToggle = () => (
-    <div style={styles.toggleWrap} onClick={toggleOnline} title={isOnline ? 'Go offline' : 'Go online'}>
-      <div style={{ ...styles.toggleTrack, backgroundColor: isOnline ? '#4CAF50' : '#aaa' }}>
-        <div style={{ ...styles.toggleThumb, transform: isOnline ? 'translateX(18px)' : 'translateX(0)' }} />
+    <div className="tk-hover" style={styles.toggleWrap} onClick={toggleOnline} title={isOnline ? 'Go offline' : 'Go online'}>
+      <div style={{ ...styles.toggleTrack, backgroundColor: isOnline ? '#2FAE66' : '#8891A5' }}>
+        <div style={{ ...styles.toggleThumb, transform: isOnline ? 'translateX(20px)' : 'translateX(0)' }} />
       </div>
       <span style={styles.toggleLabel}>{isOnline ? 'Online' : 'Offline'}</span>
     </div>
@@ -382,14 +382,14 @@ export default function App() {
 
   if (screen === 'login') return (
     <div style={styles.container}>
-      <div style={styles.loginCard}>
+      <div className="tk-slide-up" style={styles.loginCard}>
         <img src="/logo.png" alt="Tuokaa" style={styles.loginLogo} />
         <h1 style={styles.loginTitle}>🛵 Rider Panel</h1>
         <p style={styles.loginSub}>Tuokaa Delivery</p>
         {errorMsg && <p style={styles.errorMsg}>{errorMsg}</p>}
         <input style={styles.input} placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
         <input style={styles.input} placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-        <button style={styles.primaryBtn} onClick={login}>Login</button>
+        <button className="tk-hover tk-press" style={styles.primaryBtn} onClick={login}>Login</button>
       </div>
     </div>
   );
@@ -398,7 +398,7 @@ export default function App() {
 
   if (screen === 'available') return (
     <div style={styles.container}>
-      {toast && <div style={styles.toast}>{toast}</div>}
+      {toast && <div className="tk-pop" style={styles.toast}>{toast}</div>}
       <div style={styles.header}>
         <div>
           <h2 style={styles.headerTitle}>🛵 Available Deliveries</h2>
@@ -407,17 +407,17 @@ export default function App() {
         <div style={styles.headerRight}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <OnlineToggle />
-            <div style={{ ...styles.liveChip, backgroundColor: connected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)' }}>
-              <span style={{ ...styles.liveDot, backgroundColor: connected ? '#a5d6a7' : '#ffcc80' }} />
+            <div style={{ ...styles.liveChip, backgroundColor: connected ? 'rgba(245,166,35,0.28)' : 'rgba(255,255,255,0.12)' }}>
+              <span className={connected ? 'tk-pulse' : ''} style={{ ...styles.liveDot, backgroundColor: connected ? '#F5A623' : '#ffcc80' }} />
               {connected ? 'Live' : 'Connecting…'}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <ChatBell />
-            <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
-            <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
-            <button style={styles.smallBtn} onClick={() => setScreen('active')}>My Deliveries{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}</button>
-            <button style={styles.smallBtn} onClick={() => setSupportOpen(true)}>💬 Support</button>
+            <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
+            <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
+            <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('active')}>My Deliveries{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}</button>
+            <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setSupportOpen(true)}>💬 Support</button>
           </div>
         </div>
       </div>
@@ -435,16 +435,16 @@ export default function App() {
           <p style={styles.offlineIcon}>📦</p>
           <p style={styles.offlineTitle}>Pick up your current order first</p>
           <p style={styles.offlineText}>You have a delivery waiting to be picked up. Complete pickup before accepting new deliveries.</p>
-          <button style={{ ...styles.primaryBtn, marginTop: 16 }} onClick={() => setScreen('active')}>View My Deliveries</button>
+          <button className="tk-hover tk-press" style={{ ...styles.primaryBtn, marginTop: 16 }} onClick={() => setScreen('active')}>View My Deliveries</button>
         </div>
       ) : (
         <>
-          <button style={styles.refreshBtn} onClick={fetchOrders}>🔄 Refresh</button>
+          <button className="tk-hover tk-press" style={styles.refreshBtn} onClick={fetchOrders}>🔄 Refresh</button>
           {orders.length === 0 ? (
             <div style={styles.empty}><p style={styles.emptyText}>No deliveries available right now</p></div>
           ) : (
             orders.map(order => (
-              <div key={order.id} style={styles.orderCard}>
+              <div key={order.id} className="tk-hover tk-slide-up" style={styles.orderCard}>
                 <h3 style={styles.orderId}>Order #{order.id}</h3>
                 <p style={styles.orderInfo}>📍 Pickup: {order.restaurant?.name} — {order.restaurant?.address}</p>
                 {order.restaurant?.phone && <p style={styles.orderInfo}>📞 Restaurant: {order.restaurant.phone}</p>}
@@ -452,7 +452,7 @@ export default function App() {
                 <p style={styles.orderInfo}>👤 Customer: {order.customerName}</p>
                 <p style={styles.orderInfo}>📞 Customer: {order.customerPhone}</p>
                 <p style={styles.orderTotal}>Total: €{order.total}</p>
-                <button style={styles.acceptBtn} onClick={() => acceptOrder(order)}>Accept Delivery</button>
+                <button className="tk-hover tk-press" style={styles.acceptBtn} onClick={() => acceptOrder(order)}>Accept Delivery</button>
               </div>
             ))
           )}
@@ -468,7 +468,7 @@ export default function App() {
 
     if (!selected) return (
       <div style={styles.container}>
-        {toast && <div style={styles.toast}>{toast}</div>}
+        {toast && <div className="tk-pop" style={styles.toast}>{toast}</div>}
         <div style={styles.header}>
           <h2 style={styles.headerTitle}>🚴 Active Deliveries</h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -481,7 +481,7 @@ export default function App() {
           <div style={styles.empty}><p style={styles.emptyText}>No active deliveries</p></div>
         ) : (
           activeDeliveries.map(o => (
-            <div key={o.id} style={{ ...styles.orderCard, cursor: 'pointer' }} onClick={() => setSelectedDeliveryId(o.id)}>
+            <div key={o.id} className="tk-hover tk-slide-up" style={{ ...styles.orderCard, cursor: 'pointer' }} onClick={() => setSelectedDeliveryId(o.id)}>
               <div style={styles.statusRow}>
                 <h3 style={styles.orderId}>Order #{o.id}</h3>
                 <span style={{ ...styles.statusBadge, backgroundColor: STATUS_COLORS[o.status] ?? '#ccc' }}>
@@ -500,21 +500,21 @@ export default function App() {
 
     return (
       <div style={styles.container}>
-        {toast && <div style={styles.toast}>{toast}</div>}
+        {toast && <div className="tk-pop" style={styles.toast}>{toast}</div>}
         <div style={styles.header}>
           <h2 style={styles.headerTitle}>🚴 Delivery #{selected.id}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <OnlineToggle />
             <div style={{ display: 'flex', gap: 6 }}>
               <ChatBell />
-              <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
-              <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
-              <button style={styles.smallBtn} onClick={() => setSelectedDeliveryId(null)}>← Back to List</button>
+              <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
+              <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
+              <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setSelectedDeliveryId(null)}>← Back to List</button>
             </div>
           </div>
         </div>
 
-        <div style={styles.orderCard}>
+        <div className="tk-slide-up" style={styles.orderCard}>
           <h3 style={styles.orderId}>Order #{selected.id}</h3>
 
           {/* Live status badge */}
@@ -539,7 +539,7 @@ export default function App() {
             <p style={styles.orderInfo}>{selected.restaurant?.name}</p>
             <p style={styles.orderInfo}>{selected.restaurant?.address}</p>
             {selected.restaurant?.phone ? (
-              <a href={`tel:${selected.restaurant.phone}`} style={styles.callBtn}>
+              <a href={`tel:${selected.restaurant.phone}`} className="tk-hover tk-press" style={styles.callBtn}>
                 📞 Call Restaurant — {selected.restaurant.phone}
               </a>
             ) : (
@@ -552,12 +552,13 @@ export default function App() {
             <p style={styles.sectionTitle}>🏠 Delivery</p>
             <p style={styles.orderInfo}>{selected.customerName}</p>
             <p style={styles.orderInfo}>{selected.customerAddress}</p>
-            <a href={`tel:${selected.customerPhone}`} style={styles.callBtn}>
+            <a href={`tel:${selected.customerPhone}`} className="tk-hover tk-press" style={styles.callBtn}>
               📞 Call Customer — {selected.customerPhone}
             </a>
             {(selected.status === 'out_for_delivery' || selected.status === 'picked_up') && (
               <button
-                style={{ ...styles.callBtn, background: 'none', border: '1px solid #ff6b35', color: '#ff6b35', cursor: 'pointer', marginTop: 8 }}
+                className="tk-hover tk-press"
+                style={{ ...styles.callBtn, background: 'none', border: '1.5px solid #F5A623', color: '#D98C0F', cursor: 'pointer', marginTop: 8 }}
                 onClick={() => { setChatOrderId(selected.id); setOrderChatUnread(prev => ({ ...prev, [selected.id]: 0 })); }}
               >
                 💬 Message Customer
@@ -576,12 +577,12 @@ export default function App() {
           <p style={styles.orderTotal}>Total: €{Number(selected.total).toFixed(2)}</p>
 
           {selected.status === 'ready' && (
-            <button style={styles.pickupBtn} onClick={() => markAsPickedUp(selected.id)}>
+            <button className="tk-hover tk-press" style={styles.pickupBtn} onClick={() => markAsPickedUp(selected.id)}>
               🛵 Mark as Picked Up
             </button>
           )}
           {(selected.status === 'out_for_delivery' || selected.status === 'picked_up') && (
-            <button style={styles.deliverBtn} onClick={() => deliverOrder(selected.id)}>
+            <button className="tk-hover tk-press" style={styles.deliverBtn} onClick={() => deliverOrder(selected.id)}>
               ✅ Mark as Delivered
             </button>
           )}
@@ -606,7 +607,7 @@ export default function App() {
 
   if (screen === 'earnings') return (
     <div style={styles.container}>
-      {toast && <div style={styles.toast}>{toast}</div>}
+      {toast && <div className="tk-pop" style={styles.toast}>{toast}</div>}
       <div style={styles.navyHeader}>
         <div>
           <h2 style={styles.headerTitle}>💰 Earnings</h2>
@@ -616,7 +617,7 @@ export default function App() {
       </div>
 
       {/* Summary card */}
-      <div style={styles.amberCard}>
+      <div className="tk-slide-up" style={styles.amberCard}>
         <p style={styles.amberLabel}>Total Earnings</p>
         <p style={styles.amberTotal}>€{totalFiltered.toFixed(2)}</p>
         <p style={styles.amberSub}>{filteredEarnings.length} deliver{filteredEarnings.length !== 1 ? 'ies' : 'y'} completed</p>
@@ -627,6 +628,7 @@ export default function App() {
         {['weekly', 'monthly'].map(f => (
           <button
             key={f}
+            className="tk-hover tk-press"
             style={{ ...styles.filterTab, ...(earningsFilter === f ? styles.filterTabActive : {}) }}
             onClick={() => setEarningsFilter(f)}
           >
@@ -654,7 +656,7 @@ export default function App() {
         <div style={styles.empty}><p style={styles.emptyText}>No completed deliveries in this period</p></div>
       ) : (
         filteredEarnings.map(order => (
-          <div key={order.id} style={styles.earningsCard}>
+          <div key={order.id} className="tk-hover" style={styles.earningsCard}>
             <div style={styles.earningsRow}>
               <span style={styles.earningsId}>Order #{order.id}</span>
               <span style={styles.earningsAmt}>€{Number(order.total).toFixed(2)}</span>
@@ -676,7 +678,7 @@ export default function App() {
 
   if (screen === 'profile') return (
     <div style={styles.container}>
-      {toast && <div style={styles.toast}>{toast}</div>}
+      {toast && <div className="tk-pop" style={styles.toast}>{toast}</div>}
       <div style={styles.navyHeader}>
         <div>
           <h2 style={styles.headerTitle}>👤 Profile</h2>
@@ -686,7 +688,7 @@ export default function App() {
       </div>
 
       {/* Read-only account info */}
-      <div style={styles.orderCard}>
+      <div className="tk-slide-up" style={styles.orderCard}>
         <p style={styles.sectionTitle}>Account</p>
         <div style={styles.profileRow}>
           <span style={styles.profileLabel}>Name</span>
@@ -699,7 +701,7 @@ export default function App() {
       </div>
 
       {/* Editable fields */}
-      <div style={styles.orderCard}>
+      <div className="tk-slide-up" style={styles.orderCard}>
         <p style={styles.sectionTitle}>Business Details</p>
 
         <label style={styles.fieldLabel}>Phone Number</label>
@@ -744,6 +746,7 @@ export default function App() {
         </select>
 
         <button
+          className="tk-hover tk-press"
           style={{ ...styles.primaryBtn, marginTop: 8, opacity: (profileSaving || (profileYtunnus && !isYTunnusValid(profileYtunnus))) ? 0.7 : 1 }}
           onClick={saveProfile}
           disabled={profileSaving || (profileYtunnus && !isYTunnusValid(profileYtunnus))}
@@ -756,115 +759,120 @@ export default function App() {
 }
 
 const STATUS_COLORS = {
-  accepted: '#2196F3',
-  preparing: '#9C27B0',
-  ready: '#4CAF50',
-  out_for_delivery: '#00BCD4',
-  picked_up: '#00BCD4',
-  delivered: '#888',
+  accepted: '#2F80ED',
+  preparing: '#8355C7',
+  ready: '#2FAE66',
+  out_for_delivery: '#1AA6B7',
+  picked_up: '#1AA6B7',
+  delivered: '#98A0B3',
 };
 
+const NAVY = '#1A2744';
+const NAVY_LIGHT = '#253358';
+const AMBER = '#F5A623';
+const AMBER_DARK = '#D98C0F';
+
 const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#f0f2f5', padding: 20 },
+  container: { minHeight: '100vh', background: 'linear-gradient(180deg, #EEF1F8 0%, #E7EBF5 100%)', padding: 'clamp(14px, 4vw, 28px)', maxWidth: 620, margin: '0 auto', boxSizing: 'border-box' },
 
   // Login
-  loginCard: { maxWidth: 400, margin: '100px auto', backgroundColor: '#fff', padding: 40, borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' },
-  loginLogo: { display: 'block', width: 64, height: 64, borderRadius: 14, objectFit: 'cover', margin: '0 auto 12px' },
-  loginTitle: { textAlign: 'center', color: '#ff6b35', fontSize: 32, margin: '0 0 8px' },
-  loginSub: { textAlign: 'center', color: '#888', marginBottom: 24 },
-  errorMsg: { color: 'red', textAlign: 'center', marginBottom: 12 },
-  input: { width: '100%', padding: 12, marginBottom: 12, borderRadius: 8, border: '1px solid #ddd', fontSize: 15, boxSizing: 'border-box', backgroundColor: '#fff' },
-  primaryBtn: { width: '100%', padding: 14, backgroundColor: '#ff6b35', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer' },
+  loginCard: { maxWidth: 420, margin: 'clamp(40px, 14vh, 110px) auto', backgroundColor: '#fff', padding: 'clamp(32px, 6vw, 44px) clamp(24px, 6vw, 36px)', borderRadius: 22, boxShadow: '0 12px 32px rgba(26,39,68,0.14), 0 2px 8px rgba(26,39,68,0.08)', border: '1px solid #E4E8F1' },
+  loginLogo: { display: 'block', width: 72, height: 72, borderRadius: 18, objectFit: 'cover', margin: '0 auto 18px', boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)' },
+  loginTitle: { textAlign: 'center', color: NAVY, fontSize: 27, fontWeight: 800, letterSpacing: '-0.3px', margin: '0 0 4px' },
+  loginSub: { textAlign: 'center', color: '#6B7488', marginBottom: 30, fontSize: 14, fontWeight: 500 },
+  errorMsg: { color: '#E5484D', textAlign: 'center', marginBottom: 16, fontSize: 13, fontWeight: 600, backgroundColor: '#FDEDED', padding: '10px 14px', borderRadius: 10, border: '1px solid #F6C6C7' },
+  input: { width: '100%', padding: '13px 14px', marginBottom: 14, borderRadius: 10, border: '1.5px solid #E4E8F1', fontSize: 15, boxSizing: 'border-box', backgroundColor: '#fff', color: NAVY, transition: 'border-color .15s' },
+  primaryBtn: { width: '100%', padding: 15, background: `linear-gradient(135deg, ${AMBER} 0%, ${AMBER_DARK} 100%)`, color: NAVY, border: 'none', borderRadius: 10, fontSize: 15.5, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.2px', boxShadow: '0 6px 18px rgba(245,166,35,0.35)' },
 
   // Headers
-  header: { backgroundColor: '#ff6b35', padding: 20, borderRadius: 12, marginBottom: 20, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  navyHeader: { backgroundColor: '#1a237e', padding: 20, borderRadius: 12, marginBottom: 20, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { margin: '0 0 4px', fontSize: 22, fontWeight: 700 },
-  headerSub: { margin: 0, opacity: 0.8, fontSize: 13 },
+  header: { background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_LIGHT} 100%)`, padding: 'clamp(16px,4vw,22px) clamp(16px,4vw,24px)', borderRadius: 22, marginBottom: 20, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 16px rgba(26,39,68,0.08), 0 1px 3px rgba(26,39,68,0.06)', gap: 12, flexWrap: 'wrap', borderBottom: `3px solid ${AMBER}` },
+  navyHeader: { background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY_LIGHT} 100%)`, padding: 'clamp(16px,4vw,22px) clamp(16px,4vw,24px)', borderRadius: 22, marginBottom: 20, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 16px rgba(26,39,68,0.08), 0 1px 3px rgba(26,39,68,0.06)', gap: 12, flexWrap: 'wrap' },
+  headerTitle: { margin: '0 0 4px', fontSize: 'clamp(19px,4vw,23px)', fontWeight: 800, letterSpacing: '-0.3px' },
+  headerSub: { margin: 0, opacity: 0.75, fontSize: 13, fontWeight: 500 },
   headerRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end' },
 
   // Live chip
-  liveChip: { display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#fff' },
+  liveChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: '0.3px' },
   liveDot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
 
   // Small nav button
-  smallBtn: { backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', padding: '6px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
+  smallBtn: { backgroundColor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.28)', padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.1px' },
 
   // Online toggle
-  toggleWrap: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' },
-  toggleTrack: { width: 38, height: 20, borderRadius: 10, position: 'relative', transition: 'background-color 0.2s', flexShrink: 0 },
-  toggleThumb: { position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', backgroundColor: '#fff', transition: 'transform 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' },
-  toggleLabel: { color: '#fff', fontSize: 12, fontWeight: 700 },
+  toggleWrap: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', padding: '4px 10px 4px 4px', borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.10)' },
+  toggleTrack: { width: 44, height: 24, borderRadius: 12, position: 'relative', transition: 'background-color 0.2s', flexShrink: 0, boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.2)' },
+  toggleThumb: { position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', backgroundColor: '#fff', transition: 'transform 0.25s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 1px 4px rgba(0,0,0,0.35)' },
+  toggleLabel: { color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: '0.3px' },
 
   // Offline banner
-  offlineBanner: { backgroundColor: '#fff', borderRadius: 12, padding: '48px 24px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  offlineIcon: { fontSize: 40, margin: '0 0 12px' },
-  offlineTitle: { fontSize: 20, fontWeight: 700, color: '#333', margin: '0 0 8px' },
-  offlineText: { color: '#888', fontSize: 14, margin: 0 },
+  offlineBanner: { backgroundColor: '#fff', borderRadius: 22, padding: 'clamp(36px,8vw,56px) 24px', textAlign: 'center', boxShadow: '0 4px 16px rgba(26,39,68,0.08), 0 1px 3px rgba(26,39,68,0.06)', border: '1px solid #E4E8F1' },
+  offlineIcon: { fontSize: 44, margin: '0 0 14px' },
+  offlineTitle: { fontSize: 20, fontWeight: 800, color: NAVY, margin: '0 0 8px' },
+  offlineText: { color: '#6B7488', fontSize: 14, margin: 0, lineHeight: 1.5 },
 
   // Order cards
-  orderCard: { backgroundColor: '#fff', padding: 20, borderRadius: 12, marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  orderId: { color: '#ff6b35', margin: '0 0 12px', fontSize: 17, fontWeight: 700 },
-  orderInfo: { color: '#555', margin: '4px 0', fontSize: 14 },
-  orderTotal: { fontWeight: 'bold', fontSize: 18, margin: '12px 0' },
-  acceptBtn: { width: '100%', padding: 12, backgroundColor: '#4CAF50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer' },
-  pickupBtn: { width: '100%', padding: 12, backgroundColor: '#ff6b35', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer', marginTop: 8 },
-  deliverBtn: { width: '100%', padding: 12, backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer', marginTop: 8 },
-  refreshBtn: { marginBottom: 16, padding: '10px 20px', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer' },
+  orderCard: { backgroundColor: '#fff', padding: 'clamp(18px,4vw,22px)', borderRadius: 16, marginBottom: 16, boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)', border: '1px solid #E4E8F1' },
+  orderId: { color: NAVY, margin: '0 0 12px', fontSize: 17, fontWeight: 800, letterSpacing: '-0.2px' },
+  orderInfo: { color: '#6B7488', margin: '5px 0', fontSize: 14, lineHeight: 1.5 },
+  orderTotal: { fontWeight: 800, fontSize: 19, margin: '14px 0', color: NAVY },
+  acceptBtn: { width: '100%', padding: 14, background: `linear-gradient(135deg, ${AMBER}, ${AMBER_DARK})`, color: NAVY, border: 'none', borderRadius: 10, fontSize: 15.5, fontWeight: 700, cursor: 'pointer', boxShadow: '0 6px 18px rgba(245,166,35,0.35)' },
+  pickupBtn: { width: '100%', padding: 14, background: `linear-gradient(135deg, ${AMBER}, ${AMBER_DARK})`, color: NAVY, border: 'none', borderRadius: 10, fontSize: 15.5, fontWeight: 700, cursor: 'pointer', marginTop: 8, boxShadow: '0 6px 18px rgba(245,166,35,0.35)' },
+  deliverBtn: { width: '100%', padding: 14, background: `linear-gradient(135deg, ${NAVY}, ${NAVY_LIGHT})`, color: '#fff', border: 'none', borderRadius: 10, fontSize: 15.5, fontWeight: 700, cursor: 'pointer', marginTop: 8, boxShadow: '0 4px 16px rgba(26,39,68,0.08), 0 1px 3px rgba(26,39,68,0.06)' },
+  refreshBtn: { marginBottom: 16, padding: '11px 20px', backgroundColor: '#fff', border: '1.5px solid #E4E8F1', borderRadius: 10, cursor: 'pointer', fontWeight: 600, color: NAVY, fontSize: 13.5 },
 
   // Status
   statusRow: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
-  statusLabel: { fontSize: 11, color: '#999', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' },
-  statusBadge: { padding: '3px 10px', borderRadius: 20, color: '#fff', fontSize: 12, fontWeight: 700, textTransform: 'capitalize', fontFamily: 'monospace' },
+  statusLabel: { fontSize: 11, color: '#98A0B3', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px' },
+  statusBadge: { padding: '4px 12px', borderRadius: 20, color: '#fff', fontSize: 11.5, fontWeight: 700, textTransform: 'capitalize', letterSpacing: '0.3px', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' },
 
   // Banners
-  waitingBanner: { backgroundColor: '#fff3e0', color: '#e65100', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontWeight: 600, fontSize: 14, border: '1px solid #ffcc80' },
-  readyBanner: { backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontWeight: 700, fontSize: 14, border: '1px solid #a5d6a7' },
-  waitingNote: { marginTop: 12, fontSize: 12, color: '#999', textAlign: 'center', fontStyle: 'italic' },
+  waitingBanner: { backgroundColor: '#FFF4E0', color: '#8a5a00', borderRadius: 10, padding: '13px 16px', marginBottom: 16, fontWeight: 600, fontSize: 14, border: '1px solid #FFDFA3' },
+  readyBanner: { backgroundColor: '#E7F7EE', color: '#1E7F4B', borderRadius: 10, padding: '13px 16px', marginBottom: 16, fontWeight: 700, fontSize: 14, border: '1px solid #B7E9CC' },
+  waitingNote: { marginTop: 12, fontSize: 12, color: '#98A0B3', textAlign: 'center', fontStyle: 'italic' },
 
   // Sections inside active card
-  section: { borderTop: '1px solid #f0f0f0', paddingTop: 12, marginBottom: 12 },
-  sectionTitle: { fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#888', margin: '0 0 6px' },
-  callBtn: { display: 'inline-block', marginTop: 6, padding: '8px 14px', backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none', border: '1px solid #a5d6a7' },
-  noPhone: { color: '#bbb', fontSize: 13, fontStyle: 'italic', margin: '4px 0' },
+  section: { borderTop: '1px solid #E4E8F1', paddingTop: 14, marginBottom: 14 },
+  sectionTitle: { fontWeight: 700, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.6px', color: '#98A0B3', margin: '0 0 8px' },
+  callBtn: { display: 'inline-block', marginTop: 8, padding: '10px 16px', backgroundColor: '#E7F7EE', color: '#1E7F4B', borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: 'none', border: '1px solid #B7E9CC' },
+  noPhone: { color: '#98A0B3', fontSize: 13, fontStyle: 'italic', margin: '4px 0' },
 
   // Empty
-  empty: { textAlign: 'center', padding: '60px 20px' },
-  emptyText: { color: '#888', fontSize: 16 },
+  empty: { textAlign: 'center', padding: '70px 20px' },
+  emptyText: { color: '#6B7488', fontSize: 16, fontWeight: 500 },
 
   // Toast
-  toast: { position: 'fixed', top: 20, right: 20, zIndex: 9999, backgroundColor: '#ff6b35', color: '#fff', padding: '14px 20px', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.2)', fontSize: 14, fontWeight: 600 },
+  toast: { position: 'fixed', top: 20, right: 20, zIndex: 9999, background: `linear-gradient(135deg, ${NAVY}, ${NAVY_LIGHT})`, color: '#fff', padding: '15px 20px', borderRadius: 12, boxShadow: '0 12px 32px rgba(26,39,68,0.14), 0 2px 8px rgba(26,39,68,0.08)', fontSize: 13.5, fontWeight: 600, borderLeft: `4px solid ${AMBER}`, maxWidth: '86vw' },
 
   // Earnings
-  amberCard: { backgroundColor: '#ffc107', padding: 24, borderRadius: 12, marginBottom: 16, textAlign: 'center' },
-  amberLabel: { margin: '0 0 4px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#5d4037' },
-  amberTotal: { margin: '0 0 4px', fontSize: 40, fontWeight: 800, color: '#212121' },
-  amberSub: { margin: 0, fontSize: 13, color: '#5d4037' },
-  filterRow: { display: 'flex', gap: 8, marginBottom: 16 },
-  filterTab: { flex: 1, padding: '10px 0', borderRadius: 8, border: '2px solid #1a237e', backgroundColor: '#fff', color: '#1a237e', fontWeight: 700, fontSize: 13, cursor: 'pointer' },
-  filterTabActive: { backgroundColor: '#1a237e', color: '#fff' },
-  chartCard: { backgroundColor: '#fff', borderRadius: 12, padding: '16px 16px 8px', marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  chartTitle: { margin: '0 0 12px', fontSize: 12, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  chartArea: { display: 'flex', alignItems: 'flex-end', height: 110, gap: 6 },
+  amberCard: { background: `linear-gradient(135deg, ${AMBER} 0%, ${AMBER_DARK} 100%)`, padding: 28, borderRadius: 22, marginBottom: 18, textAlign: 'center', boxShadow: '0 6px 18px rgba(245,166,35,0.35)' },
+  amberLabel: { margin: '0 0 6px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'rgba(26,39,68,0.75)' },
+  amberTotal: { margin: '0 0 6px', fontSize: 42, fontWeight: 800, color: NAVY, letterSpacing: '-0.5px' },
+  amberSub: { margin: 0, fontSize: 13, fontWeight: 600, color: 'rgba(26,39,68,0.7)' },
+  filterRow: { display: 'flex', gap: 10, marginBottom: 18 },
+  filterTab: { flex: 1, padding: '11px 0', borderRadius: 10, border: `1.5px solid ${NAVY}`, backgroundColor: '#fff', color: NAVY, fontWeight: 700, fontSize: 13, cursor: 'pointer' },
+  filterTabActive: { backgroundColor: NAVY, color: '#fff', boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)' },
+  chartCard: { backgroundColor: '#fff', borderRadius: 16, padding: '18px 18px 10px', marginBottom: 18, boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)', border: '1px solid #E4E8F1' },
+  chartTitle: { margin: '0 0 14px', fontSize: 12, fontWeight: 700, color: '#98A0B3', textTransform: 'uppercase', letterSpacing: '0.6px' },
+  chartArea: { display: 'flex', alignItems: 'flex-end', height: 120, gap: 8 },
   chartCol: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
-  chartBar: { width: '100%', backgroundColor: '#ffc107', borderRadius: '4px 4px 0 0', minHeight: 0, transition: 'height 0.3s' },
-  chartValue: { fontSize: 9, color: '#1a237e', fontWeight: 700, marginBottom: 2 },
-  chartLabel: { fontSize: 10, color: '#888', marginTop: 4 },
-  earningsCard: { backgroundColor: '#fff', padding: '14px 18px', borderRadius: 12, marginBottom: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  chartBar: { width: '100%', background: `linear-gradient(180deg, ${AMBER}, ${AMBER_DARK})`, borderRadius: '6px 6px 2px 2px', minHeight: 0, transition: 'height 0.3s ease' },
+  chartValue: { fontSize: 9.5, color: NAVY, fontWeight: 700, marginBottom: 4 },
+  chartLabel: { fontSize: 10.5, color: '#98A0B3', marginTop: 6, fontWeight: 600 },
+  earningsCard: { backgroundColor: '#fff', padding: '15px 18px', borderRadius: 16, marginBottom: 10, boxShadow: '0 1px 3px rgba(26,39,68,0.06), 0 1px 2px rgba(26,39,68,0.08)', border: '1px solid #E4E8F1' },
   earningsRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  earningsId: { fontWeight: 700, color: '#1a237e', fontSize: 14 },
-  earningsAmt: { fontWeight: 800, color: '#2e7d32', fontSize: 15 },
-  earningsInfo: { margin: '2px 0', fontSize: 13, color: '#555' },
-  earningsDate: { margin: '5px 0 0', fontSize: 11, color: '#aaa' },
+  earningsId: { fontWeight: 700, color: NAVY, fontSize: 14 },
+  earningsAmt: { fontWeight: 800, color: '#1E7F4B', fontSize: 15.5 },
+  earningsInfo: { margin: '2px 0', fontSize: 13, color: '#6B7488' },
+  earningsDate: { margin: '6px 0 0', fontSize: 11, color: '#98A0B3', fontWeight: 500 },
 
   // Profile
-  profileRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f5f5f5' },
-  profileLabel: { fontSize: 13, color: '#888', fontWeight: 600 },
-  profileValue: { fontSize: 14, color: '#333', fontWeight: 600 },
-  fieldLabel: { display: 'block', fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, marginTop: 4 },
-  phoneInputWrap: { display: 'flex', alignItems: 'center', width: '100%', padding: '0 12px', marginBottom: 4, borderRadius: 8, border: '1px solid #ddd', backgroundColor: '#fff', boxSizing: 'border-box' },
-  phonePrefix: { fontSize: 15, fontWeight: 700, color: '#555', marginRight: 6, flexShrink: 0 },
-  phoneInput: { flex: 1, minWidth: 0, padding: '12px 0', border: 'none', outline: 'none', fontSize: 15, backgroundColor: 'transparent' },
-  fieldHint: { fontSize: 11, color: '#999', margin: '0 0 12px' },
-  fieldHintError: { fontSize: 11, color: '#c62828', margin: '0 0 12px', fontWeight: 600 },
+  profileRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #E4E8F1' },
+  profileLabel: { fontSize: 13, color: '#6B7488', fontWeight: 600 },
+  profileValue: { fontSize: 14, color: NAVY, fontWeight: 700 },
+  fieldLabel: { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6B7488', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6, marginTop: 6 },
+  phoneInputWrap: { display: 'flex', alignItems: 'center', width: '100%', padding: '0 14px', marginBottom: 6, borderRadius: 10, border: '1.5px solid #E4E8F1', backgroundColor: '#fff', boxSizing: 'border-box' },
+  phonePrefix: { fontSize: 15, fontWeight: 700, color: '#6B7488', marginRight: 8, flexShrink: 0 },
+  phoneInput: { flex: 1, minWidth: 0, padding: '13px 0', border: 'none', outline: 'none', fontSize: 15, backgroundColor: 'transparent', color: NAVY },
+  fieldHint: { fontSize: 11.5, color: '#98A0B3', margin: '0 0 14px' },
+  fieldHintError: { fontSize: 11.5, color: '#E5484D', margin: '0 0 14px', fontWeight: 600 },
 };
