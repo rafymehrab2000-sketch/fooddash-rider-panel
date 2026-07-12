@@ -31,6 +31,8 @@ function formatYTunnus(raw) {
 const isPhoneValid = phone => /^\d{2} \d{3} \d{4}$/.test(phone);
 const isYTunnusValid = ytunnus => /^\d{7}-\d$/.test(ytunnus);
 
+const riderEarning = (order) => Math.round((order?.deliveryFee ?? 0) * 0.95 * 100) / 100;
+
 export default function App() {
   const [screen, setScreen] = useState('login');
   const [rider, setRider] = useState(null);
@@ -323,7 +325,7 @@ export default function App() {
     return d >= cutoff;
   });
 
-  const totalFiltered = filteredEarnings.reduce((s, o) => s + (o.total ?? 0), 0);
+  const totalFiltered = filteredEarnings.reduce((s, o) => s + riderEarning(o), 0);
 
   const buildChart = () => {
     if (earningsFilter === 'weekly') {
@@ -333,7 +335,7 @@ export default function App() {
         const label = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][d.getDay()];
         const total = filteredEarnings
           .filter(o => new Date(o.createdAt).toDateString() === d.toDateString())
-          .reduce((s, o) => s + (o.total ?? 0), 0);
+          .reduce((s, o) => s + riderEarning(o), 0);
         return { label, total };
       });
     }
@@ -344,7 +346,7 @@ export default function App() {
       start.setDate(start.getDate() - 7);
       const total = filteredEarnings
         .filter(o => { const d = new Date(o.createdAt); return d >= start && d < end; })
-        .reduce((s, o) => s + (o.total ?? 0), 0);
+        .reduce((s, o) => s + riderEarning(o), 0);
       return { label: `W${4 - i}`, total };
     }).reverse();
   };
@@ -451,7 +453,8 @@ export default function App() {
                 <p style={styles.orderInfo}>🏠 Deliver to: {order.customerAddress}</p>
                 <p style={styles.orderInfo}>👤 Customer: {order.customerName}</p>
                 <p style={styles.orderInfo}>📞 Customer: {order.customerPhone}</p>
-                <p style={styles.orderTotal}>Total: €{order.total}</p>
+                <p style={styles.orderTotal}>🚴 Your earning: €{riderEarning(order).toFixed(2)}</p>
+                {order.distance != null && <p style={styles.orderInfo}>📍 {order.distance.toFixed(1)} km</p>}
                 <button className="tk-hover tk-press" style={styles.acceptBtn} onClick={() => acceptOrder(order)}>Accept Delivery</button>
               </div>
             ))
@@ -490,7 +493,8 @@ export default function App() {
               </div>
               <p style={styles.orderInfo}>📍 {o.restaurant?.name}</p>
               <p style={styles.orderInfo}>🏠 {o.customerAddress}</p>
-              <p style={styles.orderTotal}>Total: €{Number(o.total).toFixed(2)}</p>
+              <p style={styles.orderTotal}>🚴 Your earning: €{riderEarning(o).toFixed(2)}</p>
+              {o.distance != null && <p style={styles.orderInfo}>📍 {o.distance.toFixed(1)} km</p>}
               <p style={{ ...styles.waitingNote, textAlign: 'left', fontStyle: 'normal', color: '#ff6b35', fontWeight: 700 }}>Tap to view details →</p>
             </div>
           ))
@@ -574,7 +578,8 @@ export default function App() {
             </p>
           </div>
 
-          <p style={styles.orderTotal}>Total: €{Number(selected.total).toFixed(2)}</p>
+          <p style={styles.orderTotal}>🚴 Your earning: €{riderEarning(selected).toFixed(2)}</p>
+          {selected.distance != null && <p style={styles.orderInfo}>📍 {selected.distance.toFixed(1)} km</p>}
 
           {selected.status === 'ready' && (
             <button className="tk-hover tk-press" style={styles.pickupBtn} onClick={() => markAsPickedUp(selected.id)}>
@@ -659,7 +664,7 @@ export default function App() {
           <div key={order.id} className="tk-hover" style={styles.earningsCard}>
             <div style={styles.earningsRow}>
               <span style={styles.earningsId}>Order #{order.id}</span>
-              <span style={styles.earningsAmt}>€{Number(order.total).toFixed(2)}</span>
+              <span style={styles.earningsAmt}>Earned: €{riderEarning(order).toFixed(2)}</span>
             </div>
             <p style={styles.earningsInfo}>🍽️ {order.restaurant?.name}</p>
             <p style={styles.earningsInfo}>🏠 {order.customerAddress}</p>
