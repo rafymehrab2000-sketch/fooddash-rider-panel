@@ -3,6 +3,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import DeliveryMap from './DeliveryMap';
 import SupportChat from './SupportChat';
+import OrderChat from './OrderChat';
 
 const API_URL = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
 const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway.app';
@@ -52,7 +53,10 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast] = useState(null);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [orderChatUnread, setOrderChatUnread] = useState({});
+  const [chatOrderId, setChatOrderId] = useState(null);
   const prevStatusesRef = useRef({});
+  const totalChatUnread = Object.values(orderChatUnread).reduce((a, b) => a + b, 0);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -209,6 +213,30 @@ export default function App() {
     };
   }, [socket, fetchOrders, showToast, isOnline]);
 
+  useEffect(() => {
+    if (!socket || !rider?.id) return;
+    const eventName = `rider_${rider.id}_order_chat_message`;
+    const handler = (data) => {
+      const { orderId } = data ?? {};
+      if (orderId == null) return;
+      if (chatOrderId === orderId) return;
+      setOrderChatUnread(prev => ({ ...prev, [orderId]: (prev[orderId] || 0) + 1 }));
+      showToast(`💬 New message from ${data.customerName || 'customer'} (Order #${orderId})`);
+    };
+    socket.on(eventName, handler);
+    return () => socket.off(eventName, handler);
+  }, [socket, rider?.id, chatOrderId, showToast]);
+
+  const openChatBell = () => {
+    const unreadOrderId = Object.keys(orderChatUnread).find(id => orderChatUnread[id] > 0);
+    const targetId = unreadOrderId ? Number(unreadOrderId) : activeDeliveries[0]?.id;
+    if (!targetId) { showToast('No active delivery to chat about'); return; }
+    setSelectedDeliveryId(targetId);
+    setScreen('active');
+    setChatOrderId(targetId);
+    setOrderChatUnread(prev => ({ ...prev, [targetId]: 0 }));
+  };
+
   const toggleOnline = () => {
     setIsOnline(prev => {
       const next = !prev;
@@ -326,8 +354,15 @@ export default function App() {
 
   // ─── Shared nav helpers ──────────────────────────────────────────────────────
 
+  const ChatBell = () => (
+    <button style={styles.smallBtn} onClick={openChatBell} title="Messages">
+      🔔{totalChatUnread > 0 ? ` ${totalChatUnread}` : ''}
+    </button>
+  );
+
   const NavButtons = ({ backTo = 'available' }) => (
     <div style={{ display: 'flex', gap: 6 }}>
+      <ChatBell />
       {screen !== 'earnings' && <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>}
       {screen !== 'profile' && <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>}
       {screen !== 'available' && <button style={styles.smallBtn} onClick={() => setScreen(backTo)}>← Back</button>}
@@ -378,6 +413,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <ChatBell />
             <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
             <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
             <button style={styles.smallBtn} onClick={() => setScreen('active')}>My Deliveries{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}</button>
@@ -470,6 +506,7 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <OnlineToggle />
             <div style={{ display: 'flex', gap: 6 }}>
+              <ChatBell />
               <button style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
               <button style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
               <button style={styles.smallBtn} onClick={() => setSelectedDeliveryId(null)}>← Back to List</button>
@@ -518,6 +555,14 @@ export default function App() {
             <a href={`tel:${selected.customerPhone}`} style={styles.callBtn}>
               📞 Call Customer — {selected.customerPhone}
             </a>
+            {(selected.status === 'out_for_delivery' || selected.status === 'picked_up') && (
+              <button
+                style={{ ...styles.callBtn, background: 'none', border: '1px solid #ff6b35', color: '#ff6b35', cursor: 'pointer', marginTop: 8 }}
+                onClick={() => { setChatOrderId(selected.id); setOrderChatUnread(prev => ({ ...prev, [selected.id]: 0 })); }}
+              >
+                💬 Message Customer
+              </button>
+            )}
           </div>
 
           {/* Special notes */}
@@ -545,6 +590,14 @@ export default function App() {
           )}
         </div>
         <DeliveryMap activeDelivery={selected} />
+        {chatOrderId === selected.id && (
+          <OrderChat
+            orderId={selected.id}
+            customerName={selected.customerName}
+            socket={socket}
+            onClose={() => setChatOrderId(null)}
+          />
+        )}
       </div>
     );
   }
