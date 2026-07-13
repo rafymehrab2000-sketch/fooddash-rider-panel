@@ -31,7 +31,7 @@ function formatYTunnus(raw) {
 const isPhoneValid = phone => /^\d{2} \d{3} \d{4}$/.test(phone);
 const isYTunnusValid = ytunnus => /^\d{7}-\d$/.test(ytunnus);
 
-const riderEarning = (order) => Math.round((order?.deliveryFee ?? 0) * 0.95 * 100) / 100;
+const riderEarning = (order) => Math.round((order?.deliveryFee ?? 0) * 0.975 * 100) / 100;
 
 export default function App() {
   const [screen, setScreen] = useState('login');
