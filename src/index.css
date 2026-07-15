@@ -30,6 +30,8 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  height: 100%;
 }
 
 body {
@@ -41,6 +43,37 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg);
   color: var(--text);
+  min-height: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* iOS PWA (Add to Home Screen) status bar safe area */
+@media (display-mode: standalone) {
+  body {
+    background-color: var(--navy);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iOS Safari: default control chrome (rounded corners/inset shadow) can visually
+   break custom-styled text inputs and buttons */
+button,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+textarea {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+a, button, input, select {
+  touch-action: manipulation;
 }
 
 code {

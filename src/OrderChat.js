@@ -119,7 +119,7 @@ export default function OrderChat({ orderId, customerName, socket, onClose }) {
 
 const styles = {
   overlay: {
-    position: 'fixed', inset: 0, backgroundColor: 'rgba(18,27,52,0.55)', backdropFilter: 'blur(2px)',
+    position: 'fixed', inset: 0, backgroundColor: 'rgba(18,27,52,0.55)', WebkitBackdropFilter: 'blur(2px)', backdropFilter: 'blur(2px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16,
   },
   modal: {
@@ -153,7 +153,7 @@ const styles = {
   replyRow: { display: 'flex', gap: 10, padding: '14px 16px', borderTop: '1px solid #E4E8F1', backgroundColor: '#fff' },
   replyInput: {
     flex: 1, padding: '11px 16px', borderRadius: 22, border: '1.5px solid #E4E8F1',
-    fontSize: 14, outline: 'none', boxSizing: 'border-box', color: '#1A2744',
+    fontSize: 16, outline: 'none', boxSizing: 'border-box', color: '#1A2744',
   },
   sendButton: {
     padding: '11px 22px', borderRadius: 22, border: 'none',

@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import DeliveryMap from './DeliveryMap';
 import SupportChat from './SupportChat';
 import OrderChat from './OrderChat';
+import InstallPrompt from './InstallPrompt';
 
 const API_URL = 'https://fooddash-food-delivery-project-production.up.railway.app/api';
 const SOCKET_URL = 'https://fooddash-food-delivery-project-production.up.railway.app';
@@ -164,7 +165,7 @@ export default function App() {
     activeDeliveries.forEach(o => {
       if (o.status === 'ready' && prevStatusesRef.current[o.id] !== 'ready') {
         showToast(`🍔 Order #${o.id} is ready for pickup!`);
-        if (Notification.permission === 'granted') {
+        if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('Order Ready for Pickup! 🍔', { body: `Order #${o.id} — head to the restaurant!` });
         }
       }
@@ -180,7 +181,7 @@ export default function App() {
     const handleNewOrder = () => {
       fetchOrders();
       if (!isOnline) return;
-      if (Notification.permission === 'granted') {
+      if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('New Delivery Available 🛵', { body: 'A new order is ready for pickup!' });
       }
       showToast('New delivery available! 🛵');
@@ -363,7 +364,8 @@ export default function App() {
   );
 
   const NavButtons = ({ backTo = 'available' }) => (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <InstallPrompt />
       <ChatBell />
       {screen !== 'earnings' && <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>}
       {screen !== 'profile' && <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>}
@@ -389,8 +391,28 @@ export default function App() {
         <h1 style={styles.loginTitle}>🛵 Rider Panel</h1>
         <p style={styles.loginSub}>Tuokaa Delivery</p>
         {errorMsg && <p style={styles.errorMsg}>{errorMsg}</p>}
-        <input style={styles.input} placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-        <input style={styles.input} placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+        <input
+          style={styles.input}
+          placeholder="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+        />
+        <input
+          style={styles.input}
+          placeholder="Password"
+          type="password"
+          autoComplete="current-password"
+          autoCapitalize="none"
+          autoCorrect="off"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') login(); }}
+        />
         <button className="tk-hover tk-press" style={styles.primaryBtn} onClick={login}>Login</button>
       </div>
     </div>
@@ -415,6 +437,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <InstallPrompt />
             <ChatBell />
             <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
             <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
@@ -509,7 +532,8 @@ export default function App() {
           <h2 style={styles.headerTitle}>🚴 Delivery #{selected.id}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <OnlineToggle />
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <InstallPrompt />
               <ChatBell />
               <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('earnings')}>💰 Earnings</button>
               <button className="tk-hover tk-press" style={styles.smallBtn} onClick={() => setScreen('profile')}>👤 Profile</button>
@@ -786,7 +810,7 @@ const styles = {
   loginTitle: { textAlign: 'center', color: NAVY, fontSize: 27, fontWeight: 800, letterSpacing: '-0.3px', margin: '0 0 4px' },
   loginSub: { textAlign: 'center', color: '#6B7488', marginBottom: 30, fontSize: 14, fontWeight: 500 },
   errorMsg: { color: '#E5484D', textAlign: 'center', marginBottom: 16, fontSize: 13, fontWeight: 600, backgroundColor: '#FDEDED', padding: '10px 14px', borderRadius: 10, border: '1px solid #F6C6C7' },
-  input: { width: '100%', padding: '13px 14px', marginBottom: 14, borderRadius: 10, border: '1.5px solid #E4E8F1', fontSize: 15, boxSizing: 'border-box', backgroundColor: '#fff', color: NAVY, transition: 'border-color .15s' },
+  input: { width: '100%', padding: '13px 14px', marginBottom: 14, borderRadius: 10, border: '1.5px solid #E4E8F1', fontSize: 16, boxSizing: 'border-box', backgroundColor: '#fff', color: NAVY, transition: 'border-color .15s' },
   primaryBtn: { width: '100%', padding: 15, background: `linear-gradient(135deg, ${AMBER} 0%, ${AMBER_DARK} 100%)`, color: NAVY, border: 'none', borderRadius: 10, fontSize: 15.5, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.2px', boxShadow: '0 6px 18px rgba(245,166,35,0.35)' },
 
   // Headers
@@ -877,7 +901,7 @@ const styles = {
   fieldLabel: { display: 'block', fontSize: 11.5, fontWeight: 700, color: '#6B7488', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6, marginTop: 6 },
   phoneInputWrap: { display: 'flex', alignItems: 'center', width: '100%', padding: '0 14px', marginBottom: 6, borderRadius: 10, border: '1.5px solid #E4E8F1', backgroundColor: '#fff', boxSizing: 'border-box' },
   phonePrefix: { fontSize: 15, fontWeight: 700, color: '#6B7488', marginRight: 8, flexShrink: 0 },
-  phoneInput: { flex: 1, minWidth: 0, padding: '13px 0', border: 'none', outline: 'none', fontSize: 15, backgroundColor: 'transparent', color: NAVY },
+  phoneInput: { flex: 1, minWidth: 0, padding: '13px 0', border: 'none', outline: 'none', fontSize: 16, backgroundColor: 'transparent', color: NAVY },
   fieldHint: { fontSize: 11.5, color: '#98A0B3', margin: '0 0 14px' },
   fieldHintError: { fontSize: 11.5, color: '#E5484D', margin: '0 0 14px', fontWeight: 600 },
 };
