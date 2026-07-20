@@ -240,7 +240,13 @@ export default function App() {
     setOrderChatUnread(prev => ({ ...prev, [targetId]: 0 }));
   };
 
+  const hasActiveDelivery = activeDeliveries.length > 0;
+
   const toggleOnline = () => {
+    if (hasActiveDelivery) {
+      showToast('Complete your current delivery before going offline');
+      return;
+    }
     setIsOnline(prev => {
       const next = !prev;
       localStorage.setItem('riderOnline', String(next));
@@ -374,8 +380,17 @@ export default function App() {
   );
 
   const OnlineToggle = () => (
-    <div className="tk-hover" style={styles.toggleWrap} onClick={toggleOnline} title={isOnline ? 'Go offline' : 'Go online'}>
-      <div style={{ ...styles.toggleTrack, backgroundColor: isOnline ? '#2FAE66' : '#8891A5' }}>
+    <div
+      className={hasActiveDelivery ? '' : 'tk-hover'}
+      style={{
+        ...styles.toggleWrap,
+        opacity: hasActiveDelivery ? 0.5 : 1,
+        cursor: hasActiveDelivery ? 'not-allowed' : 'pointer',
+      }}
+      onClick={toggleOnline}
+      title={hasActiveDelivery ? 'Complete your current delivery before going offline' : (isOnline ? 'Go offline' : 'Go online')}
+    >
+      <div style={{ ...styles.toggleTrack, backgroundColor: hasActiveDelivery ? '#8891A5' : (isOnline ? '#2FAE66' : '#8891A5') }}>
         <div style={{ ...styles.toggleThumb, transform: isOnline ? 'translateX(20px)' : 'translateX(0)' }} />
       </div>
       <span style={styles.toggleLabel}>{isOnline ? 'Online' : 'Offline'}</span>
