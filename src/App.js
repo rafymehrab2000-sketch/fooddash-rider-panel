@@ -70,6 +70,16 @@ export default function App() {
     else delete axios.defaults.headers.common['Authorization'];
   }, [token]);
 
+  // Sync current online status to the server right after login, since the
+  // DB defaults to offline but the rider's local preference may say online.
+  useEffect(() => {
+    if (!token || !rider) return;
+    axios.put(`${API_URL}/rider/status`, { isOnline }).catch(() => {
+      console.error('Failed to sync online status to server');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, rider]);
+
   useEffect(() => {
     if (!token) return;
     const s = io(SOCKET_URL, {
@@ -243,6 +253,9 @@ export default function App() {
     setIsOnline(prev => {
       const next = !prev;
       localStorage.setItem('riderOnline', String(next));
+      axios.put(`${API_URL}/rider/status`, { isOnline: next }).catch(() => {
+        console.error('Failed to sync online status to server');
+      });
       return next;
     });
   };
