@@ -71,6 +71,18 @@ export default function App() {
     else delete axios.defaults.headers.common['Authorization'];
   }, [token]);
 
+  // Sync current online status to the server right after login, since the
+  // DB defaults to offline but the rider's local preference may say online.
+  useEffect(() => {
+    if (!token || !rider) return;
+    const url = `${API_URL}/rider/status`;
+    console.log('[login-sync] PUT', url, { isOnline });
+    axios.put(url, { isOnline })
+      .then(res => console.log('[login-sync] server confirmed:', res.data))
+      .catch(err => console.error('[login-sync] Failed to sync online status to server:', err.response?.status, err.response?.data || err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, rider]);
+
   useEffect(() => {
     if (!token) return;
     const s = io(SOCKET_URL, {
@@ -250,6 +262,12 @@ export default function App() {
     setIsOnline(prev => {
       const next = !prev;
       localStorage.setItem('riderOnline', String(next));
+      const url = `${API_URL}/rider/status`;
+      const authHeader = axios.defaults.headers.common['Authorization'];
+      console.log('[toggleOnline] PUT', url, { isOnline: next }, 'auth header present:', Boolean(authHeader));
+      axios.put(url, { isOnline: next })
+        .then(res => console.log('[toggleOnline] server confirmed:', res.data))
+        .catch(err => console.error('[toggleOnline] Failed to sync online status to server:', err.response?.status, err.response?.data || err.message));
       return next;
     });
   };
