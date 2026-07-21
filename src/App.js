@@ -79,7 +79,14 @@ export default function App() {
     console.log('[login-sync] PUT', url, { isOnline });
     axios.put(url, { isOnline })
       .then(res => console.log('[login-sync] server confirmed:', res.data))
-      .catch(err => console.error('[login-sync] Failed to sync online status to server:', err.response?.status, err.response?.data || err.message));
+      .catch(err => {
+        console.error('[login-sync] Failed to sync online status to server:', err.response?.status, err.response?.data || err.message);
+        if (err.response?.status === 409) {
+          setIsOnline(true);
+          localStorage.setItem('riderOnline', 'true');
+          showToast(err.response.data?.error || 'You have an active delivery. Complete it before going offline.');
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, rider]);
 
@@ -256,20 +263,25 @@ export default function App() {
 
   const toggleOnline = () => {
     if (hasActiveDelivery) {
-      showToast('Complete your current delivery before going offline');
+      showToast('You have an active delivery. Complete it before going offline.');
       return;
     }
-    setIsOnline(prev => {
-      const next = !prev;
-      localStorage.setItem('riderOnline', String(next));
-      const url = `${API_URL}/rider/status`;
-      const authHeader = axios.defaults.headers.common['Authorization'];
-      console.log('[toggleOnline] PUT', url, { isOnline: next }, 'auth header present:', Boolean(authHeader));
-      axios.put(url, { isOnline: next })
-        .then(res => console.log('[toggleOnline] server confirmed:', res.data))
-        .catch(err => console.error('[toggleOnline] Failed to sync online status to server:', err.response?.status, err.response?.data || err.message));
-      return next;
-    });
+    const next = !isOnline;
+    setIsOnline(next);
+    localStorage.setItem('riderOnline', String(next));
+    const url = `${API_URL}/rider/status`;
+    const authHeader = axios.defaults.headers.common['Authorization'];
+    console.log('[toggleOnline] PUT', url, { isOnline: next }, 'auth header present:', Boolean(authHeader));
+    axios.put(url, { isOnline: next })
+      .then(res => console.log('[toggleOnline] server confirmed:', res.data))
+      .catch(err => {
+        console.error('[toggleOnline] Failed to sync online status to server:', err.response?.status, err.response?.data || err.message);
+        if (err.response?.status === 409) {
+          setIsOnline(!next);
+          localStorage.setItem('riderOnline', String(!next));
+          showToast(err.response.data?.error || 'You have an active delivery. Complete it before going offline.');
+        }
+      });
   };
 
   const login = async () => {
@@ -406,7 +418,7 @@ export default function App() {
         cursor: hasActiveDelivery ? 'not-allowed' : 'pointer',
       }}
       onClick={toggleOnline}
-      title={hasActiveDelivery ? 'Complete your current delivery before going offline' : (isOnline ? 'Go offline' : 'Go online')}
+      title={hasActiveDelivery ? 'You have an active delivery. Complete it before going offline.' : (isOnline ? 'Go offline' : 'Go online')}
     >
       <div style={{ ...styles.toggleTrack, backgroundColor: hasActiveDelivery ? '#8891A5' : (isOnline ? '#2FAE66' : '#8891A5') }}>
         <div style={{ ...styles.toggleThumb, transform: isOnline ? 'translateX(20px)' : 'translateX(0)' }} />
