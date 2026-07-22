@@ -34,7 +34,7 @@ const isYTunnusValid = ytunnus => /^\d{7}-\d$/.test(ytunnus);
 
 const riderEarning = (order) => Math.round((order?.deliveryFee ?? 0) * 0.975 * 100) / 100;
 
-export default function App() {
+function RiderPanelApp() {
   const [screen, setScreen] = useState('login');
   const [rider, setRider] = useState(null);
   const [token, setToken] = useState(null);
@@ -315,6 +315,22 @@ export default function App() {
         showToast('Failed to accept delivery. Please try again.');
       }
     }
+  };
+
+  const releaseDelivery = async (id) => {
+    if (!window.confirm('Release this delivery back to the available pool?')) return;
+    try {
+      await axios.put(`${API_URL}/rider/${id}/release`, { riderName: rider.name });
+    } catch {
+      showToast('Failed to release delivery. Please try again.');
+      return;
+    }
+    const remaining = activeDeliveries.filter(o => o.id !== id);
+    localStorage.setItem(DELIVERY_KEY, JSON.stringify(remaining));
+    setActiveDeliveries(remaining);
+    setSelectedDeliveryId(null);
+    setScreen(remaining.length > 0 ? 'active' : 'available');
+    fetchOrders();
   };
 
   const markAsPickedUp = async (id) => {
@@ -663,6 +679,15 @@ export default function App() {
           {(selected.status === 'accepted' || selected.status === 'preparing') && (
             <p style={styles.waitingNote}>Polling every 5s — pickup button appears once restaurant marks ready.</p>
           )}
+          {(selected.status === 'accepted' || selected.status === 'preparing' || selected.status === 'ready') && (
+            <button
+              className="tk-hover tk-press"
+              style={{ ...styles.callBtn, background: 'none', border: '1.5px solid #E5484D', color: '#E5484D', cursor: 'pointer', marginTop: 8, width: '100%', textAlign: 'center' }}
+              onClick={() => releaseDelivery(selected.id)}
+            >
+              ✕ Release This Delivery
+            </button>
+          )}
         </div>
         <DeliveryMap activeDelivery={selected} />
         {chatOrderId === selected.id && (
@@ -950,3 +975,86 @@ const styles = {
   fieldHint: { fontSize: 11.5, color: '#98A0B3', margin: '0 0 14px' },
   fieldHintError: { fontSize: 11.5, color: '#E5484D', margin: '0 0 14px', fontWeight: 600 },
 };
+
+// ─── System status: maintenance mode + announcement banner ─────────────────────
+
+const FALLBACK_MAINTENANCE_MESSAGE = "Tuokaa is temporarily down for maintenance. We'll be back soon! 🔧";
+const SYSTEM_STATUS_POLL_MS = 30000;
+
+function useSystemStatus() {
+  const [status, setStatus] = useState({
+    maintenanceMode: false,
+    maintenanceMessage: '',
+    announcementEnabled: false,
+    announcementMessage: '',
+    loaded: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStatus = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/system/status`);
+        if (!cancelled) setStatus({ ...res.data, loaded: true });
+      } catch {
+        // Network hiccup — keep the previous status rather than assuming maintenance.
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, SYSTEM_STATUS_POLL_MS);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  return status;
+}
+
+function MaintenanceGate({ children }) {
+  const { maintenanceMode, maintenanceMessage, loaded } = useSystemStatus();
+
+  if (loaded && maintenanceMode) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F6FA', padding: 24 }}>
+        <div style={{ backgroundColor: '#fff', borderRadius: 16, padding: '40px 32px', maxWidth: 420, textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.08)' }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🔧</div>
+          <p style={{ fontSize: 16, color: NAVY, lineHeight: 1.6, fontWeight: 600, margin: 0 }}>{maintenanceMessage || FALLBACK_MAINTENANCE_MESSAGE}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
+}
+
+function AnnouncementBanner() {
+  const { announcementEnabled, announcementMessage } = useSystemStatus();
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!announcementMessage) return;
+    setDismissed(localStorage.getItem(`announcement_dismissed_${announcementMessage}`) === '1');
+  }, [announcementMessage]);
+
+  if (!announcementEnabled || !announcementMessage || dismissed) return null;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: AMBER, color: NAVY, padding: '10px 40px', fontSize: 13, fontWeight: 700, textAlign: 'center', position: 'relative' }}>
+      <span style={{ flex: 1, textAlign: 'center' }}>{announcementMessage}</span>
+      <button
+        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: NAVY, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+        aria-label="Dismiss announcement"
+        onClick={() => { localStorage.setItem(`announcement_dismissed_${announcementMessage}`, '1'); setDismissed(true); }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <MaintenanceGate>
+      <AnnouncementBanner />
+      <RiderPanelApp />
+    </MaintenanceGate>
+  );
+}
