@@ -59,6 +59,9 @@ function RiderPanelApp() {
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [earnings, setEarnings] = useState([]);
   const [earningsFilter, setEarningsFilter] = useState('weekly');
+  const [invoiceStart, setInvoiceStart] = useState('');
+  const [invoiceEnd, setInvoiceEnd] = useState('');
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
   const [profilePhone, setProfilePhone] = useState('');
   const [profileYtunnus, setProfileYtunnus] = useState('');
   const [profileVehicle, setProfileVehicle] = useState('Scooter');
@@ -157,6 +160,28 @@ function RiderPanelApp() {
       setEarnings(delivered);
     } catch { console.error('Failed to fetch earnings'); }
   }, [rider]);
+
+  const handleDownloadInvoice = async () => {
+    if (!invoiceStart || !invoiceEnd || invoiceDownloading) return;
+    setInvoiceDownloading(true);
+    try {
+      const res = await axios.get(
+        `${API_URL}/rider/invoice?start=${invoiceStart}&end=${invoiceEnd}`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${invoiceStart}-${invoiceEnd}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      console.error('Failed to download invoice');
+    }
+    setInvoiceDownloading(false);
+  };
 
   const fetchStripeStatus = useCallback(async () => {
     try {
@@ -805,6 +830,38 @@ function RiderPanelApp() {
             {f === 'weekly' ? 'This Week' : 'This Month'}
           </button>
         ))}
+      </div>
+
+      {/* Invoice download */}
+      <div className="tk-slide-up" style={styles.orderCard}>
+        <p style={styles.sectionTitle}>Download Invoice</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+          <input
+            type="date"
+            value={invoiceStart}
+            onChange={(e) => setInvoiceStart(e.target.value)}
+            style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd', fontSize: 14 }}
+          />
+          <span>to</span>
+          <input
+            type="date"
+            value={invoiceEnd}
+            onChange={(e) => setInvoiceEnd(e.target.value)}
+            style={{ padding: 10, borderRadius: 10, border: '1px solid #ddd', fontSize: 14 }}
+          />
+        </div>
+        <button
+          className="tk-hover tk-press"
+          onClick={handleDownloadInvoice}
+          disabled={!invoiceStart || !invoiceEnd || invoiceDownloading}
+          style={{
+            ...styles.filterTab, ...styles.filterTabActive,
+            opacity: (!invoiceStart || !invoiceEnd || invoiceDownloading) ? 0.6 : 1,
+            cursor: (!invoiceStart || !invoiceEnd || invoiceDownloading) ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {invoiceDownloading ? 'Generating…' : '📄 Download Invoice'}
+        </button>
       </div>
 
       {/* Bar chart */}
