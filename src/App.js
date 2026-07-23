@@ -34,6 +34,19 @@ const isYTunnusValid = ytunnus => /^\d{7}-\d$/.test(ytunnus);
 
 const riderEarning = (order) => Math.round((order?.deliveryFee ?? 0) * 0.975 * 100) / 100;
 
+// Rough client-side estimate of the next payout day for display purposes —
+// the authoritative schedule (Europe/Helsinki) is enforced server-side.
+function getNextPayoutDate(schedule) {
+  const dueDays = schedule === 'twice_weekly' ? [1, 4] : [1]; // Mon=1, Thu=4
+  const now = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    if (dueDays.includes(d.getDay())) return d;
+  }
+  return null;
+}
+
 function RiderPanelApp() {
   const [screen, setScreen] = useState('login');
   const [rider, setRider] = useState(null);
@@ -51,6 +64,12 @@ function RiderPanelApp() {
   const [profileVehicle, setProfileVehicle] = useState('Scooter');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [stripeStatus, setStripeStatus] = useState(null);
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [payoutSchedule, setPayoutSchedule] = useState('weekly');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const pendingStripeReturnRef = useRef(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -139,6 +158,15 @@ function RiderPanelApp() {
     } catch { console.error('Failed to fetch earnings'); }
   }, [rider]);
 
+  const fetchStripeStatus = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/stripe/connect/status`);
+      setStripeStatus(res.data);
+      setPayoutSchedule(res.data.payoutSchedule || 'weekly');
+    } catch { /* non-fatal — card just shows a "not connected" state */ }
+    setStripeLoading(false);
+  }, []);
+
   useEffect(() => {
     if (screen === 'available' || screen === 'active') fetchOrders();
     if (screen === 'earnings') fetchEarnings();
@@ -150,8 +178,29 @@ function RiderPanelApp() {
         setProfileYtunnus(formatYTunnus(p.ytunnus ?? ''));
         setProfileVehicle(p.vehicleType ?? 'Scooter');
       }
+      fetchStripeStatus();
     }
-  }, [screen, fetchOrders, fetchEarnings]);
+  }, [screen, fetchOrders, fetchEarnings, fetchStripeStatus]);
+
+  // Stripe's hosted onboarding redirects back here with ?stripe_return=1 (or
+  // ?stripe_refresh=1 if abandoned) — since the session isn't persisted
+  // across a full-page redirect, the rider lands back on the login screen;
+  // once they log back in, send them straight to Profile so they see their
+  // updated connection status.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('stripe_return') || params.has('stripe_refresh')) {
+      pendingStripeReturnRef.current = true;
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (rider && pendingStripeReturnRef.current) {
+      pendingStripeReturnRef.current = false;
+      setScreen('profile');
+    }
+  }, [rider]);
 
   // Poll GET /orders/:id every 5s per not-yet-ready active delivery — catches 'ready' status reliably.
   const pendingIds = activeDeliveries.filter(o => ['accepted', 'preparing'].includes(o.status)).map(o => o.id).join(',');
@@ -368,6 +417,28 @@ function RiderPanelApp() {
     setProfileSaving(false);
     setProfileSaved(true);
     setTimeout(() => setProfileSaved(false), 2500);
+  };
+
+  const handleConnectStripe = async () => {
+    setConnectLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/stripe/connect/rider`);
+      window.location.href = res.data.url;
+    } catch {
+      showToast('Failed to start Stripe onboarding. Please try again.');
+      setConnectLoading(false);
+    }
+  };
+
+  const handleSavePayoutSchedule = async () => {
+    setScheduleSaving(true);
+    try {
+      await axios.put(`${API_URL}/stripe/connect/payout-schedule`, { payoutSchedule });
+      showToast('Payout schedule saved');
+    } catch {
+      showToast('Failed to save payout schedule');
+    }
+    setScheduleSaving(false);
   };
 
   // ─── Earnings helpers ────────────────────────────────────────────────────────
@@ -852,6 +923,70 @@ function RiderPanelApp() {
         >
           {profileSaving ? 'Saving…' : profileSaved ? '✅ Saved!' : 'Save Profile'}
         </button>
+      </div>
+
+      {/* Payment Settings */}
+      <div className="tk-slide-up" style={styles.orderCard}>
+        <p style={styles.sectionTitle}>Payment Settings</p>
+
+        {stripeLoading ? (
+          <p style={styles.fieldHint}>Loading…</p>
+        ) : !stripeStatus?.connected ? (
+          <>
+            <p style={styles.fieldHint}>Connect a bank account to receive automatic payouts from Tuokaa.</p>
+            <button
+              className="tk-hover tk-press"
+              style={{ ...styles.primaryBtn, marginTop: 8, opacity: connectLoading ? 0.7 : 1 }}
+              onClick={handleConnectStripe}
+              disabled={connectLoading}
+            >
+              {connectLoading ? 'Connecting…' : 'Connect Bank Account'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={styles.profileRow}>
+              <span style={styles.profileLabel}>Status</span>
+              <span style={{ ...styles.profileValue, color: stripeStatus.stripePayoutsEnabled ? '#2e7d32' : '#c68a00' }}>
+                {stripeStatus.stripePayoutsEnabled ? 'Connected' : 'Onboarding in progress'}
+              </span>
+            </div>
+            {stripeStatus.stripeBankLast4 && (
+              <div style={styles.profileRow}>
+                <span style={styles.profileLabel}>Bank account</span>
+                <span style={styles.profileValue}>•••• {stripeStatus.stripeBankLast4}</span>
+              </div>
+            )}
+            <div style={styles.profileRow}>
+              <span style={styles.profileLabel}>Pending earnings</span>
+              <span style={styles.profileValue}>€{(stripeStatus.pendingEarnings ?? 0).toFixed(2)}</span>
+            </div>
+
+            {stripeStatus.stripePayoutsEnabled && (
+              <>
+                <label style={styles.fieldLabel}>Payout Schedule</label>
+                <select
+                  style={{ ...styles.input, cursor: 'pointer' }}
+                  value={payoutSchedule}
+                  onChange={e => setPayoutSchedule(e.target.value)}
+                >
+                  <option value="weekly">Weekly (every Monday)</option>
+                  <option value="twice_weekly">Twice weekly (Monday & Thursday)</option>
+                </select>
+                <p style={styles.fieldHint}>Next payout: {getNextPayoutDate(payoutSchedule)?.toLocaleDateString()}</p>
+
+                <button
+                  className="tk-hover tk-press"
+                  style={{ ...styles.primaryBtn, marginTop: 8, opacity: scheduleSaving ? 0.7 : 1 }}
+                  onClick={handleSavePayoutSchedule}
+                  disabled={scheduleSaving}
+                >
+                  {scheduleSaving ? 'Saving…' : 'Save Payout Schedule'}
+                </button>
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
